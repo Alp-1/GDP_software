@@ -9,15 +9,16 @@ FOOTER = b"\xBA\xA6\xAA"
 class Commands:
     """Store a list of commands that can be sent to the motor controllers"""
 
-    # One-byte commnad types
+    # One-byte command types
     ENABLE = b"\x80"
-    DISABLE_COMMAND = b"\x82"
+    DISABLE = b"\x82"
     ACK = b"\x83"
     GET_CURRENTS = b"\x01"
     GET_ENCODERS = b"\x02"  # Unused
     SET_SPEED_MIXED = b"\x10"
     SET_SPEED_LEFT_RIGHT = b"\x11"
     RESP_CURRENTS = b"\x21"
+    UNKNOWN = b"\xFF"
 
     def __init__(self):
         pass
@@ -36,43 +37,43 @@ class Commands:
 
             # Check if command is valid
             if command_type == Commands.ENABLE:
-                yield ("enable", None)
-            elif command_type == Commands.DISABLE_COMMAND:
-                yield ("disable", None)
+                yield (Commands.ENABLE, None)
+            elif command_type == Commands.DISABLE:
+                yield (Commands.DISABLE, None)
             elif command_type == Commands.ACK:
-                yield ("ack", None)
+                yield (Commands.ACK, None)
             elif command_type == Commands.GET_CURRENTS:
-                yield ("get_currents", None)
+                yield (Commands.GET_CURRENTS, None)
             elif command_type == Commands.GET_ENCODERS:
-                yield ("get_encoders", None)
+                yield (Commands.GET_ENCODERS, None)
             elif command_type == Commands.SET_SPEED_MIXED:
                 speed_command, turn = ustruct.unpack("ff", current_command[1:])
-                yield ("set_speed_mixed", (speed_command, turn))
+                yield (Commands.SET_SPEED_MIXED, (speed_command, turn))
             elif command_type == Commands.SET_SPEED_LEFT_RIGHT:
                 left, right = ustruct.unpack("ff", current_command[1:])
-                yield ("set_speed_left_right", (left, right))
+                yield (Commands.SET_SPEED_LEFT_RIGHT, (left, right))
             elif command_type == Commands.RESP_CURRENTS:
                 left, right = ustruct.unpack("ff", current_command[1:])
-                yield ("resp_currents", (left, right))
+                yield (Commands.RESP_CURRENTS, (left, right))
             else:
-                yield ("unknown", None)
+                yield (Commands.UNKNOWN, None)
 
     @staticmethod
     def generate_command(command: tuple):
         """Send a command to the motor controllers"""
         command_type = command[0]
 
-        if command_type == "enable":
+        if command_type == Commands.ENABLE:
             return bytearray(HEADER + Commands.ENABLE + FOOTER)
-        elif command_type == "disable":
-            return bytearray(HEADER + Commands.DISABLE_COMMAND + FOOTER)
-        elif command_type == "ack":
+        elif command_type == Commands.DISABLE:
+            return bytearray(HEADER + Commands.DISABLE + FOOTER)
+        elif command_type == Commands.ACK:
             return bytearray(HEADER + Commands.ACK + FOOTER)
-        elif command_type == "get_currents":
+        elif command_type == Commands.GET_CURRENTS:
             return bytearray(HEADER + Commands.GET_CURRENTS + FOOTER)
-        elif command_type == "get_encoders":
+        elif command_type == Commands.GET_ENCODERS:
             return bytearray(HEADER + Commands.GET_ENCODERS + FOOTER)
-        elif command_type == "set_speed_mixed":
+        elif command_type == Commands.SET_SPEED_MIXED:
             speed_command, turn = command[1]
             return bytearray(
                 HEADER
@@ -80,7 +81,7 @@ class Commands:
                 + ustruct.pack("ff", speed_command, turn)
                 + FOOTER
             )
-        elif command_type == "set_speed_left_right":
+        elif command_type == Commands.SET_SPEED_LEFT_RIGHT:
             left, right = command[1]
             return bytearray(
                 HEADER
@@ -88,7 +89,7 @@ class Commands:
                 + ustruct.pack("ff", left, right)
                 + FOOTER
             )
-        elif command_type == "resp_currents":
+        elif command_type == Commands.RESP_CURRENTS:
             left, right = command[1]
             return bytearray(
                 HEADER
@@ -98,3 +99,9 @@ class Commands:
             )
         else:
             return bytearray()
+
+
+# Commonly used commands
+Commands.ACK_COMMAND = Commands.generate_command((Commands.ACK, None))
+Commands.ENABLE_COMMAND = Commands.generate_command((Commands.ENABLE, None))
+Commands.DISABLE_COMMAND = Commands.generate_command((Commands.DISABLE, None))

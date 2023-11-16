@@ -1,11 +1,11 @@
 """The main motor controller code"""
 
 import time
-import ustruct
 from machine import Pin, UART
 from motor_controller.motor import MotorSensing
 from motor_controller.sabertooth import Sabertooth
 from motor_controller.pid import PID
+from protocol import Commands
 from user_interface.led import OnBoardLED
 
 LEFT_MOTOR_ID = 2
@@ -35,10 +35,6 @@ CURRENT_SENSOR_ABSENT = False
 
 class MotorController:
     """Controls the motor speed using the signals coming from the central hub"""
-
-    # Some magic numbers for the motor controller
-    ENABLE_COMMAND = b"\x80\x24\x21"
-    DISABLE_COMMAND = b"\x8F\x21\x24"
 
     ENABLED = False
 
@@ -169,13 +165,8 @@ class MotorController:
             self.drive(0, 0)
             self.ENABLED = False
 
-    def parse_command(self, command):
+    def execute_command(self, command):
         """Parse the command from the central hub. The command can be:
-
-        - ENABLE_COMMAND
-        - DISABLE_COMMAND
-        - (left_speed, right_speed)
-        - (left_speed, right_speed, turn)
 
         Parameters
         ----------
@@ -187,37 +178,55 @@ class MotorController:
         bool
             True if the command is valid, False otherwise
         """
-        print(command)
-        if command == self.ENABLE_COMMAND:
-            self.ENABLED = True
-            self.central_hub_interface.write(self.ENABLE_COMMAND)
-            print("Enabled")
-            OnBoardLED.set_period_ms(1000)
-        elif command == self.DISABLE_COMMAND:
-            self.ENABLED = False
-            self.central_hub_interface.write(self.DISABLE_COMMAND)
-            print("Disabled")
-            OnBoardLED.set_period_ms(500)
-        elif len(command) == 3 * SIZE_OF_FLOAT or len(command) == 2 * SIZE_OF_FLOAT:
-            command = ustruct.unpack(
-                "{}".format("f" * (len(command) // SIZE_OF_FLOAT)), command
-            )
-            self.left_speed_command, self.right_speed_command, *turn = command
-            self.turn = turn[0] if turn else None
-            self.detect_mode_change()
-
-            if self.turn is not None:
-                # Mixed mode drive
+        valid = False
+        for command_type, command_value in Commands.parse_command(command):
+            valid = True  # At least one command is valid
+            print(command_type, command_value)
+            if self.ENABLED == False and command_type != Commands.ENABLE:
+                # Bad input as the motor is disabled
+                continue
+            if command_type == Commands.ENABLE:
+                self.ENABLED = True
+                self.central_hub_interface.write(Commands.ACK_COMMAND)
+                OnBoardLED.set_period_ms(1000)
+            elif command_type == Commands.DISABLE:
+                self.ENABLED = False
+                self.central_hub_interface.write(Commands.ACK_COMMAND)
+                OnBoardLED.set_period_ms(500)
+            elif command_type == Commands.GET_CURRENTS:
+                self.central_hub_interface.write(
+                    Commands.generate_command(
+                        (
+                            Commands.RESP_CURRENTS,
+                            (
+                                self.left_motor.current,
+                                self.right_motor.current,
+                            ),
+                        )
+                    )
+                )
+            elif command_type == Commands.GET_ENCODERS:
+                pass
+            elif command_type == Commands.SET_SPEED_MIXED:
+                self.left_speed_command, self.turn = command_value
                 self.drive(self.left_speed_command, 0, self.turn)
-            else:
+                self.detect_mode_change()
+            elif command_type == Commands.SET_SPEED_LEFT_RIGHT:
+                self.turn = None
+                self.left_speed_command, self.right_speed_command = command_value
                 self.pid_left.setpoint = self.rpm_to_setpoint(self.left_speed_command)
                 self.pid_right.setpoint = self.rpm_to_setpoint(self.right_speed_command)
                 self.pid_update()
                 self.drive(self.left_speed_command, self.right_speed_command)
-        else:
-            print("Invalid command length {}".format(len(command)))
-            return False
-        return True
+                self.detect_mode_change()
+            elif command_type == Commands.UNKNOWN:
+                print("Unknown command")
+                valid = False
+            else:
+                # Ignore other commands
+                valid = False
+
+        return valid
 
     def detect_mode_change(self):
         """Allow the class to set the timer period once per mode change"""
@@ -246,7 +255,7 @@ class MotorController:
                 self.overcurrent_check()
             if self.central_hub_interface.any() != 0:
                 command = self.central_hub_interface.read()
-                self.parse_command(command)
+                self.execute_command(command)
             if self.ENABLED:
                 if self.turn is not None:
                     self.drive(self.left_speed_command, 0, self.turn)

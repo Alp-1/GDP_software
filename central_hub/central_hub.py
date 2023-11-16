@@ -1,12 +1,13 @@
 """The main central hub code"""
 
 import time
-from machine import Pin, UART
-import ustruct
+from machine import Pin
 from central_hub.pwm import Flight_Controller_Input
 from central_hub.receiver import RCReceiver
 from central_hub.soft_uart import SoftUART
+from protocol import Commands
 from user_interface.led import OnBoardLED
+from upy_mavlink.mav_bridge import MavLinkBridge
 
 FRONT_WHEEL_CONTROLLER_TX_PIN = 0
 FRONT_WHEEL_CONTROLLER_RX_PIN = 1
@@ -36,9 +37,8 @@ class CentralHub:
     OPERATION_MODE_SELECTOR = RCReceiver.CHANNEL_5
     MOTOR_STATE_SELECTOR = RCReceiver.CHANNEL_7
 
-    # Some magic numbers for the motor controller
-    ENABLE_COMMAND = b"\x80\x24\x21"
-    DISABLE_COMMAND = b"\x8F\x21\x24"
+    # Some common commands for the motor controller
+    STOP_COMMAND = Commands.generate_command((Commands.SET_SPEED_LEFT_RIGHT, (0, 0)))
 
     COMMAND_LOOP_PERIOD_MS = 100
     E_STOP_CHECK_PERIOD_MS = 10
@@ -51,6 +51,7 @@ class CentralHub:
         rear_wheel_controller=None,
         rc_receiver=None,
         e_stop_pin=None,
+        mavlink_bridge=None,
     ):
         """Initialize the central hub.
 
@@ -95,6 +96,10 @@ class CentralHub:
             else e_stop_pin
         )
 
+        self.mavlink_bridge = (
+            MavLinkBridge() if mavlink_bridge is None else mavlink_bridge
+        )
+
         self.current_mode = self.DIRECT_RC  # Default
         self.update_mode()
         self.state = self.PAUSED  # The initial state is paused
@@ -117,42 +122,58 @@ class CentralHub:
         throttle_left, throttle_right = Flight_Controller_Input.speed_request()
         return [throttle_left, throttle_right, throttle_left, throttle_right]
 
-    def enable_controllers(self):
-        """Send a special command to start the motor controllers"""
-        for i in range(5):
-            # Try to enable the motor controller 5 times
-            self.front_wheel_controller.write(self.ENABLE_COMMAND)
-            self.rear_wheel_controller.write(self.ENABLE_COMMAND)
+    def relay_currrent_from_motor_controllers(self):
+        """Transmit the current readings from the motor controllers to the flight controller"""
+        front_left_current, front_right_current = self.read_current(
+            self.front_wheel_controller
+        )
+        rear_left_current, rear_right_current = self.read_current(
+            self.rear_wheel_controller
+        )
+        self.mavlink_bridge.send_current_readings(
+            front_left_current,
+            front_right_current,
+            rear_left_current,
+            rear_right_current,
+        )
 
+    def read_current(self, controller):
+        """Read the current from the motor controller"""
+        controller.write(Commands.generate_command((Commands.GET_CURRENTS, None)))
+        time.sleep_ms(100)
+        if controller.any():
+            for command_type, response in Commands.parse_command(controller.read()):
+                if command_type == Commands.RESP_CURRENTS:
+                    return response
+        return 100, 100  # Return a large number if the current cannot be read
+
+    def configure_controllers(self, enable: bool):
+        """Send command to enable/disable the motor controllers
+
+        Parameters
+        ----------
+        enable : bool
+            True to enable the motor controllers, False to disable
+        """
+        for i in range(5):
+            # Try to enable/disable the motor controller 5 times
+            if enable:
+                self.front_wheel_controller.write(Commands.ENABLE_COMMAND)
+                self.rear_wheel_controller.write(Commands.ENABLE_COMMAND)
+            else:
+                self.front_wheel_controller.write(Commands.DISABLE_COMMAND)
+                self.rear_wheel_controller.write(Commands.DISABLE_COMMAND)
             try:
-                self.handshake_wait(self.ENABLE_COMMAND)
+                self.handshake_wait()
                 break
             except Exception as e:
                 print(e)
                 print("Trial no. {} failed".format(i))
                 time.sleep_ms(1000)
         else:
-            raise Exception("Failed to enable motor controller")
+            raise Exception("Failed to configure motor controller")
 
-    def disable_controllers(self):
-        """Send a special command to stop the motor controllers.
-        It will also stop the motors from the motor controller side."""
-        for i in range(5):
-            # Try to disable the motor controller 5 times
-            self.front_wheel_controller.write(self.DISABLE_COMMAND)
-            self.rear_wheel_controller.write(self.DISABLE_COMMAND)
-
-            try:
-                self.handshake_wait(self.DISABLE_COMMAND)
-                break
-            except Exception as e:
-                print(e)
-                print("Trial no. {} failed".format(i))
-                time.sleep_ms(1000)
-        else:
-            raise Exception("Failed to disable motor controller")
-
-    def handshake_wait(self, handshake_command, timeout_ms=5000):
+    def handshake_wait(self, timeout_ms=5000):
         """Wait for the motor controller to be ready by waiting for confirmation
         from the motor controller with the same command"""
         start_time = time.ticks_ms()
@@ -163,15 +184,23 @@ class CentralHub:
             if time.ticks_diff(time.ticks_ms(), start_time) > timeout_ms:
                 raise Exception("Motor controller timeout")
 
-            if self.front_wheel_controller.any():
-                if handshake_command in self.front_wheel_controller.read():
-                    front_controller_confirmation = True
+            if self.front_wheel_controller.any() and not front_controller_confirmation:
+                for command_type, _ in Commands.parse_command(
+                    self.front_wheel_controller.read()
+                ):
+                    if command_type == Commands.ACK:
+                        front_controller_confirmation = True
+                        break
                 else:
                     raise Exception("Front wheel controller ACK error")
 
-            if self.rear_wheel_controller.any():
-                if handshake_command in self.rear_wheel_controller.read():
-                    rear_controller_confirmation = True
+            if self.rear_wheel_controller.any() and not rear_controller_confirmation:
+                for command_type, _ in Commands.parse_command(
+                    self.rear_wheel_controller.read()
+                ):
+                    if command_type == Commands.ACK:
+                        rear_controller_confirmation = True
+                        break
                 else:
                     raise Exception("Rear wheel controller ACK error")
 
@@ -190,9 +219,8 @@ class CentralHub:
     def stop_motor(self):
         """Stop the motor by both setting the speed to 0 and pull down the S2 pin"""
         self.e_stop_pin.value(0)
-        command = ustruct.pack("fff", 0, 0, 0)
-        self.front_wheel_controller.write(command)
-        self.rear_wheel_controller.write(command)
+        self.front_wheel_controller.write(self.STOP_COMMAND)
+        self.rear_wheel_controller.write(self.STOP_COMMAND)
 
     def fault_check(self):
         """Stop the motor and set the current mode to FAULT if the emergency stop switch is triggered"""
@@ -218,7 +246,9 @@ class CentralHub:
             speed = -self.rc_receiver.channel_data(self.THROTTLE)
             turn = self.rc_receiver.channel_data(self.RUDDER)
             print(self.current_mode, speed, turn)
-            command = ustruct.pack("fff", speed, speed, turn)
+            command = Commands.generate_command(
+                (Commands.SET_SPEED_MIXED, (speed, turn))
+            )
             self.front_wheel_controller.write(command)
             self.rear_wheel_controller.write(command)
 
@@ -227,8 +257,12 @@ class CentralHub:
             or self.current_mode == self.FULLY_AUTONOMOUS
         ):
             command = self.request_speed_from_flight_controller()
-            command_front = ustruct.pack("ff", command[0], command[1])
-            command_rear = ustruct.pack("ff", command[2], command[3])
+            command_front = Commands.generate_command(
+                (Commands.SET_SPEED_LEFT_RIGHT, (command[0], command[1]))
+            )
+            command_rear = Commands.generate_command(
+                (Commands.SET_SPEED_LEFT_RIGHT, (command[2], command[3]))
+            )
             print(self.current_mode, command_front, command_rear)
             self.front_wheel_controller.write(command_front)
             self.rear_wheel_controller.write(command_rear)
@@ -244,11 +278,11 @@ class CentralHub:
 
         if self.state == self.PAUSED and self.state_selector == self.RUNNING:
             OnBoardLED.set_period_ms(1000)
-            self.enable_controllers()
+            self.configure_controllers(enable=True)
             self.state = self.RUNNING
         elif self.state == self.RUNNING and self.state_selector == self.PAUSED:
             OnBoardLED.set_period_ms(500)
-            self.disable_controllers()
+            self.configure_controllers(enable=False)
             self.state = self.PAUSED
         elif self.state == self.FAULT:
             # Clear the FAULT state since the emergency stop is released
