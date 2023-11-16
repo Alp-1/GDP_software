@@ -5,6 +5,7 @@ from machine import Pin, UART
 import ustruct
 from central_hub.pwm import Flight_Controller_Input
 from central_hub.receiver import RCReceiver
+from central_hub.soft_uart import SoftUART
 from user_interface.led import OnBoardLED
 
 FRONT_WHEEL_CONTROLLER_TX_PIN = 0
@@ -12,6 +13,8 @@ FRONT_WHEEL_CONTROLLER_RX_PIN = 1
 
 REAR_WHEEL_CONTROLLER_TX_PIN = 8
 REAR_WHEEL_CONTROLLER_RX_PIN = 9
+
+CONTROLLER_BAUDRATE = 9600
 
 
 class CentralHub:
@@ -61,18 +64,20 @@ class CentralHub:
             The RCReceiver object for talking to the RC receiver.
         """
         if front_wheel_controller is None:
-            self.front_wheel_controller = UART(
+            self.front_wheel_controller = SoftUART(
                 0,
-                baudrate=115200,
+                1,
+                baudrate=CONTROLLER_BAUDRATE,
                 tx=Pin(FRONT_WHEEL_CONTROLLER_TX_PIN),
                 rx=Pin(FRONT_WHEEL_CONTROLLER_RX_PIN),
             )
         else:
             self.front_wheel_controller = front_wheel_controller
         if rear_wheel_controller is None:
-            self.rear_wheel_controller = UART(
-                1,
-                baudrate=115200,
+            self.rear_wheel_controller = SoftUART(
+                2,
+                3,
+                baudrate=CONTROLLER_BAUDRATE,
                 tx=Pin(REAR_WHEEL_CONTROLLER_TX_PIN),
                 rx=Pin(REAR_WHEEL_CONTROLLER_RX_PIN),
             )
