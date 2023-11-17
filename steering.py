@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 
 # Connect to the vehicle
-vehicle = connect('/dev/ttyS0', wait_ready=True, baud=57600)
+vehicle = connect('/dev/serial0', wait_ready=True, baud=57600)
 
 # Function to override RC channels
 def override_rc(channels):
