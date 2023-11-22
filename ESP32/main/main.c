@@ -55,11 +55,12 @@ uint8_t SERIAL_PROTOCOL = 4;  // 1=MSP, 4=MAVLink/transparent
 uint8_t DB_UART_PIN_TX = GPIO_NUM_33;
 uint8_t DB_UART_PIN_RX = GPIO_NUM_32;
 # else
-uint8_t DB_UART_PIN_TX = GPIO_NUM_17;
-uint8_t DB_UART_PIN_RX = GPIO_NUM_16;
+uint8_t DB_UART_PIN_TX = GPIO_NUM_21;
+uint8_t DB_UART_PIN_RX = GPIO_NUM_20;
 #endif
-int DB_UART_BAUD_RATE = 115200;
-uint16_t TRANSPARENT_BUF_SIZE = 64;
+int32_t DB_UART_BAUD_RATE = 115200;
+//uint16_t TRANSPARENT_BUF_SIZE = 64;
+uint16_t TRANSPARENT_BUF_SIZE = 1024;
 uint8_t LTM_FRAME_NUM_BUFFER = 1;
 uint8_t MSP_LTM_SAMEPORT = 0;
 
@@ -115,7 +116,7 @@ void start_mdns_service() {
 
     ESP_ERROR_CHECK(mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0));
     ESP_ERROR_CHECK(mdns_service_add(NULL, "_db_proxy", "_tcp", APP_PORT_PROXY, NULL, 0));
-    ESP_ERROR_CHECK(mdns_service_add(NULL, "_db_comm", "_tcp", APP_PORT_COMM, NULL, 0));
+    ESP_ERROR_CHECK(mdns_service_add(NULL, "_db_comm", "_tcp", 1604, NULL, 0));
     ESP_ERROR_CHECK(mdns_service_instance_name_set("_http", "_tcp", "DroneBridge for ESP32"));
 }
 
@@ -193,8 +194,8 @@ void init_wifi_apmode() {
                     .max_connection = 10
             },
     };
-    xthal_memcpy(wifi_config.ap.ssid, DEFAULT_SSID, 32);
-    xthal_memcpy(wifi_config.ap.password, DEFAULT_PWD, 64);
+    memcpy(wifi_config.ap.ssid, DEFAULT_SSID, 32);
+    memcpy(wifi_config.ap.password, DEFAULT_PWD, 64);
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
     ESP_ERROR_CHECK(esp_wifi_set_protocol(WIFI_IF_AP, WIFI_PROTOCOL_11B));
@@ -245,8 +246,8 @@ void init_wifi_clientmode() {
                     .password = "dronebridge"
             },
     };
-    xthal_memcpy(wifi_config.sta.ssid, DEFAULT_SSID, 32);
-    xthal_memcpy(wifi_config.sta.password, DEFAULT_PWD, 64);
+    memcpy(wifi_config.sta.ssid, DEFAULT_SSID, 32);
+    memcpy(wifi_config.sta.password, DEFAULT_PWD, 64);
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );

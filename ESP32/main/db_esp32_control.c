@@ -24,6 +24,7 @@
 #include <esp_vfs_dev.h>
 #include <esp_wifi.h>
 #include <lwip/inet.h>
+#include <driver/gpio.h>
 #include <esp_netif_sta_list.h>
 #include "esp_log.h"
 #include "lwip/sockets.h"
@@ -65,16 +66,17 @@ int open_serial_socket() {
             .stop_bits = UART_STOP_BITS_1,
             .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
     };
+    ESP_ERROR_CHECK(uart_set_pin(UART_NUM, GPIO_NUM_21, GPIO_NUM_21, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE)); // 'UART_PIN_NO_CHANGE is used for pins that are not used
     ESP_ERROR_CHECK(uart_param_config(UART_NUM, &uart_config));
-    ESP_ERROR_CHECK(uart_set_pin(UART_NUM, DB_UART_PIN_TX, DB_UART_PIN_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM, 1024, 0, 0, NULL, 0));
-    if ((serial_socket = open("/dev/uart/2", O_RDWR)) == -1) {
-        ESP_LOGE(TAG, "Cannot open UART2");
+     
+    if ((serial_socket = open("/dev/uart/1", O_RDWR)) == -1) {
+        ESP_LOGE(TAG, "Cannot open UART1");
         close(serial_socket);
         uart_driver_delete(UART_NUM);
         return ESP_FAIL;
     }
-    esp_vfs_dev_uart_use_driver(2);
+    esp_vfs_dev_uart_use_driver(1);
     return serial_socket;
 }
 
@@ -202,7 +204,7 @@ void parse_transparent(int tcp_clients[], struct db_udp_connection_t *udp_conn, 
  */
 void handle_tcp_master(const int tcp_master_socket, int tcp_clients[]) {
     struct sockaddr_in6 source_addr; // Large enough for both IPv4 or IPv6
-    uint addr_len = sizeof(source_addr);
+    socklen_t addr_len = sizeof(source_addr);
     int new_tcp_client = accept(tcp_master_socket, (struct sockaddr *) &source_addr, &addr_len);
     if (new_tcp_client > 0) {
         for (int i = 0; i < CONFIG_LWIP_MAX_ACTIVE_TCP; i++) {
