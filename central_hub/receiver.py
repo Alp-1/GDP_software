@@ -3,7 +3,7 @@
 # from central_hub.picosbus import PicoSBUS
 from central_hub.ppm_reader import PpmReader
 
-RC_RECEIVER_PIN = 21
+RC_RECEIVER_PIN = 18
 
 
 class RCReceiver:

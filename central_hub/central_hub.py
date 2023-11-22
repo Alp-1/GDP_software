@@ -190,6 +190,7 @@ class CentralHub:
                 ):
                     if command_type == Commands.ACK:
                         front_controller_confirmation = True
+                        print("Front wheel controller ACK")
                         break
                 else:
                     raise Exception("Front wheel controller ACK error")
@@ -200,6 +201,7 @@ class CentralHub:
                 ):
                     if command_type == Commands.ACK:
                         rear_controller_confirmation = True
+                        print("Rear wheel controller ACK")
                         break
                 else:
                     raise Exception("Rear wheel controller ACK error")
@@ -242,9 +244,9 @@ class CentralHub:
 
         if self.current_mode == self.DIRECT_RC:
             # Inverted as the throttle is negative when pushed forward
-            # Rudder is not inverted as it is already negative when turned left
             speed = -self.rc_receiver.channel_data(self.THROTTLE)
-            turn = self.rc_receiver.channel_data(self.RUDDER)
+            # Rudder is inverted as the hardware is wired in the opposite direction
+            turn = -self.rc_receiver.channel_data(self.RUDDER)
             print(self.current_mode, speed, turn)
             command = Commands.generate_command(
                 (Commands.SET_SPEED_MIXED, (speed, turn))
