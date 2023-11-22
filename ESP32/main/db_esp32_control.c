@@ -66,8 +66,9 @@ int open_serial_socket() {
             .stop_bits = UART_STOP_BITS_1,
             .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
     };
-    ESP_ERROR_CHECK(uart_set_pin(UART_NUM, GPIO_NUM_21, GPIO_NUM_21, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE)); // 'UART_PIN_NO_CHANGE is used for pins that are not used
+    
     ESP_ERROR_CHECK(uart_param_config(UART_NUM, &uart_config));
+    ESP_ERROR_CHECK(uart_set_pin(UART_NUM, GPIO_NUM_21, GPIO_NUM_20, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE)); // 'UART_PIN_NO_CHANGE is used for pins that are not used
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM, 1024, 0, 0, NULL, 0));
      
     if ((serial_socket = open("/dev/uart/1", O_RDWR)) == -1) {
