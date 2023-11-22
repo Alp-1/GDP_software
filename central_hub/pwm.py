@@ -23,6 +23,10 @@ class Flight_Controller_Input:
         raw_throttle_right = time_pulse_us(
             Flight_Controller_Input.pwm_input_pins[1], 1, 10_000
         )
+        if raw_throttle_left < 0:
+            raw_throttle_left = 1500
+        if raw_throttle_right < 0:
+            raw_throttle_right = 1500
         # print("{}: Raw Left: {} Raw Right: {}".format(count, raw_throttle_left, raw_throttle_right))
         # Map to between -100 and 100
         raw_throttle_left = max(1000, min(2000, raw_throttle_left))
