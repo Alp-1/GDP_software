@@ -1,80 +1,146 @@
-
-from dronekit import connect, VehicleMode, mavutil
-import pyrealsense2 as rs
 import time
 import numpy as np
 import cv2
+import pyrealsense2 as rs
+from pymavlink import mavutil
+from dronekit import connect, VehicleMode
 
 # Connect to the vehicle
+mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)
+mavlink_connection.wait_heartbeat()
+print("Heartbeat from MAVLink system (system %u component %u)" % (mavlink_connection.target_system, mavlink_connection.target_component))
+
 vehicle = connect('/dev/serial0', wait_ready=True, baud=57600)
 
-# Function to override RC channels
-def override_rc(channels):
+# Global variable for the RealSense profile
+profile = None
+
+# Initialize RealSense pipeline and profile
+def initialize_realsense():
+    global profile
+    pipeline = rs.pipeline()
+    config = rs.config()
+    config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+    profile = pipeline.start(config)
+    return pipeline, profile
+
+# Function to send SET_POSITION_TARGET_LOCAL_NED command
+def set_position_target_local_ned(x, y, z, vx, vy, vz, yaw, coordinate_frame, type_mask):
+    mavlink_connection.mav.set_position_target_local_ned_send(
+        time_boot_ms=0,  
+        target_system=mavlink_connection.target_system,
+        target_component=mavlink_connection.target_component,
+        coordinate_frame=coordinate_frame,
+        type_mask=type_mask,
+        x=x, y=y, z=z,
+        vx=vx, vy=vy, vz=vz,
+        afx=0, afy=0, afz=0,
+        yaw=yaw,
+        yaw_rate=0
+    )
+
+# Specify the width of the rover in meters
+rover_width = 0.5  # Adjust to your rover's width
+
+# Function to find a clear path and calculate its direction
+def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width):
+    # Convert depth image to meters
+    depth_image_meters = depth_image * depth_scale
+
+    # Threshold for what we consider an obstacle (in meters)
+    obstacle_threshold = 1.0  # e.g., 1 meter
+
+    # Height and width of the depth image
+    height, width = depth_image_meters.shape
+
+    # Calculate the required pixel width of a clear path
+    pixel_width_for_rover = int((rover_width / obstacle_threshold) * width)
+
+    # Initialize variables for path detection
+    max_clear_path_width = 0
+    path_center_x = 0
+
+    # Scan each column in the depth image
+    for x in range(pixel_width_for_rover // 2, width - pixel_width_for_rover // 2):
+        column = depth_image_meters[:, x]
+        
+        # Check if this column is part of a clear path
+        if np.all(column > obstacle_threshold):
+            # Increment the width of the clear path
+            max_clear_path_width += 1
+            path_center_x += x
+        else:
+            # Check if the current clear path is wide enough for the rover
+            if max_clear_path_width >= pixel_width_for_rover:
+                break
+            else:
+                # Reset the path width and center
+                max_clear_path_width = 0
+                path_center_x = 0
+
+    # Check if a valid path was found
+    if max_clear_path_width >= pixel_width_for_rover:
+        # Calculate the center of the path
+        path_center_x /= max_clear_path_width
+
+        # Calculate the yaw angle (assuming straight ahead is 0 radians)
+        yaw_angle = np.arctan2(path_center_x - (width / 2), height)
+        return yaw_angle
+
+    return None
+
+# Function to navigate while avoiding obstacles
+def navigate_avoiding_obstacles(depth_scale):
     
-    channel_values = [0]*8  # there are eight RC channels on most systems
-    for channel, value in channels.items():
-        channel_values[channel-1] = value  # channels are 1-indexed in MAVLink
-    vehicle.channels.overrides = channel_values
-
-# Function to clear RC overrides
-def clear_rc_overrides():
-    
-    vehicle.channels.overrides = {}
-
-# Initialize the RealSense pipeline
-pipeline = rs.pipeline()
-config = rs.config()
-config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)  # Depth stream
-pipeline.start(config)
-
-# Function to check for obstacles and avoid them
-def check_and_avoid_obstacles():
-    # Wait for the next set of frames from the camera
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
     if not depth_frame:
         return
 
-    # Convert the depth frame to a numpy array
     depth_image = np.asanyarray(depth_frame.get_data())
-    # Assuming the obstacle is in front of the camera, get the depth value in the center of the image
-    obstacle_distance = depth_image[depth_image.shape[0] // 2, depth_image.shape[1] // 2]
 
-    # Define a threshold distance in meters (1 meter in this case)
-    threshold_distance_m = 1.0
-
-    # If there's an obstacle within the threshold distance, avoid it
-    if obstacle_distance < threshold_distance_m * 1000:  # Convert meters to the scale of depth values
-        if vehicle.mode.name != "GUIDED":
-            print("Obstacle detected! Switching to GUIDED mode and overriding RC.")
+    if vehicle.mode.name == "AUTO":
+        clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
+        if clear_path_direction is not None:
+            print("Clear path found. Setting heading and moving forward.")
             vehicle.mode = VehicleMode("GUIDED")
-            time.sleep(1)  # Give some time to switch to GUIDED mode
-            override_rc({5: 1680})  
-        else:
-            print("Already in GUIDED mode, overriding RC.")
-            override_rc({5: 1680})  # Continue overriding RC commands
-    else:
-        if vehicle.mode.name == "GUIDED":
-            print("No obstacles detected. Returning to AUTO mode and clearing RC overrides.")
-            vehicle.mode = VehicleMode("AUTO")
-            clear_rc_overrides()
-        elif vehicle.mode.name == "AUTO":
-            # If in AUTO mode and no overrides are active, keep checking for obstacles
-            if vehicle.channels.overrides:
-                clear_rc_overrides()
+            time.sleep(1)  # Allow time for mode switch
 
+            # Set the heading of the rover
+            set_position_target_local_ned(
+                x=0, y=0, z=0,
+                vx=0, vy=0, vz=0,
+                yaw=clear_path_direction,
+                coordinate_frame=mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,
+                type_mask=0b111111111000
+            )
+
+            # Move forward
+            set_position_target_local_ned(
+                x=0, y=0, z=0,
+                vx=1, vy=0, vz=0,  # Adjust speed as needed
+                yaw=clear_path_direction,
+                coordinate_frame=mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,
+                type_mask=0b110111000111
+            )
+
+# Main execution loop
 try:
+    pipeline, profile = initialize_realsense()
+    depth_sensor = profile.get_device().first_depth_sensor()
+    depth_scale = depth_sensor.get_depth_scale()
+    print("Depth Scale is: ", depth_scale)
+
     while True:
-        check_and_avoid_obstacles()
+        navigate_avoiding_obstacles(depth_scale)
         time.sleep(0.1)
 
 except KeyboardInterrupt:
     print("Script terminated by user")
 
 finally:
-    # Clean up
-    clear_rc_overrides()
     pipeline.stop()
     cv2.destroyAllWindows()
     vehicle.close()
+    mavlink_connection.close()
     print("Connection closed.")
