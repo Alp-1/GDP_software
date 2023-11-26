@@ -81,33 +81,70 @@ def navigate_avoiding_obstacles(depth_scale):
     cv2.imshow("",depth_image)
     clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
     print(clear_path_direction)
-    if vehicle.mode.name == "AUTO":
+    # if vehicle.mode.name == "AUTO":
+    if True:
         clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         if clear_path_direction is not None:
             print("Clear path found. Setting heading and moving forward.")
             vehicle.mode = VehicleMode("GUIDED")
+            print(vehicle.mode.name)
 
             # Set the heading of the rover
-            set_position_target_local_ned(
-                x=0, y=0, z=0,
-                vx=0, vy=0, vz=0,
-                yaw=clear_path_direction,
-                coordinate_frame=mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,
-                type_mask=0b111111111000
-            )
+            # set_position_target_local_ned(
+            #     x=0, y=0, z=0,
+            #     vx=0, vy=0, vz=0,
+            #     yaw=clear_path_direction,
+            #     coordinate_frame=mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,
+            #     type_mask=0b111111111000
+            # )
+            #
+            # # Move forward
+            # set_position_target_local_ned(
+            #     x=0, y=0, z=0,
+            #     vx=1, vy=0, vz=0,  # Adjust speed as needed
+            #     yaw=clear_path_direction,
+            #     coordinate_frame=mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,
+            #     type_mask=0b110111000111
+            # )
 
-            # Move forward
-            set_position_target_local_ned(
-                x=0, y=0, z=0,
-                vx=1, vy=0, vz=0,  # Adjust speed as needed
-                yaw=clear_path_direction,
-                coordinate_frame=mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,
-                type_mask=0b110111000111
-            )
+            # Set the heading of the rover
+            msg = vehicle.message_factory.set_position_target_local_ned_encode(
+                0,  # time_boot_ms (not used)
+                0, 0,  # target_system, target_component
+                mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
+                0b100111111111 ,  # type_mask (only speeds enabled)
+                0, 0, 0,  # x, y, z positions
+                0, 0, 0,  # x, y, z velocity in m/s
+                0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+                clear_path_direction, 0)  # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
+            # send command to vehicle
+            vehicle.send_mavlink(msg)
+
+            msg = vehicle.message_factory.set_position_target_local_ned_encode(
+                0,  # time_boot_ms (not used)
+                0, 0,  # target_system, target_component
+                mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
+                0b0000111111000111,  # type_mask (only speeds enabled)
+                0, 0, 0,  # x, y, z positions
+                1, 0, 0,  # x, y, z velocity in m/s
+                0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+                0, 0)  # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
+            # send command to vehicle
+            vehicle.send_mavlink(msg)
+
 
 
 # Main execution loop
 try:
+    # Get some vehicle attributes (state)
+    print ("Get some vehicle attribute values:")
+    print (" GPS: %s" % vehicle.gps_0)
+    print (" Battery: %s" % vehicle.battery)
+    print (" Last Heartbeat: %s" % vehicle.last_heartbeat)
+    print (" Is Armable?: %s" % vehicle.is_armable)
+    print (" System status: %s" % vehicle.system_status.state)
+    print (" Mode: %s" % vehicle.mode.name)  # settable
+
     pipeline, profile = initialize_realsense()
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
