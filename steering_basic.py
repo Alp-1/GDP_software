@@ -28,11 +28,11 @@ profile = None
 
 
 # Function to override RC channels
-def override_rc(channels):
-    channel_values = [0] * 8  # there are eight RC channels on most systems
-    for channel, value in channels.items():
-        channel_values[channel - 1] = value  # channels are 1-indexed in MAVLink
-    vehicle.channels.overrides = channel_values
+# def override_rc(channels):
+#     channel_values = [0] * 8  # there are eight RC channels on most systems
+#     for channel, value in channels.items():
+#         channel_values[channel - 1] = value  # channels are 1-indexed in MAVLink
+#     vehicle.channels.overrides = channel_values
 
 
 # Function to clear RC overrides
@@ -111,7 +111,7 @@ def navigate_avoiding_obstacles(depth_scale):
             print("Clear path found. Setting heading and moving forward.")
             vehicle.mode = VehicleMode("GUIDED")
             print(vehicle.mode.name)
-            override_rc({5: 1680})
+            # override_rc({5: 1680})
             # Set the heading of the rover
             # set_position_target_local_ned(
             #     x=0, y=0, z=0,
@@ -182,7 +182,7 @@ except KeyboardInterrupt:
     print("Script terminated by user")
 
 finally:
-    clear_rc_overrides()
+    # clear_rc_overrides()
     pipeline.stop()
     cv2.destroyAllWindows()
     vehicle.close()
