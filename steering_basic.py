@@ -14,6 +14,8 @@ print("Heartbeat from MAVLink system (system %u component %u)" % (
 mavlink_connection.target_system, mavlink_connection.target_component))
 
 vehicle = connect('/dev/serial0', wait_ready=True, baud=57600)
+print("Base mode: ", vehicle.mode.name)
+print("Custom mode: ", vehicle._master.mavlink_version)
 
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
