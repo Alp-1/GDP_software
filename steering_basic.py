@@ -8,12 +8,21 @@ from dronekit import connect, VehicleMode
 
 # Connect to the vehicle
 mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)
+
 mavlink_connection.wait_heartbeat()
 print("Heartbeat from MAVLink system (system %u component %u)" % (
 mavlink_connection.target_system, mavlink_connection.target_component))
 
 vehicle = connect('/dev/serial0', wait_ready=True, baud=57600)
 
+# Function to be called whenever HEARTBEAT messages are received
+def heartbeat_listener(self, name, message):
+    print("Heartbeat received")
+    print("Base Mode: {}".format(message.base_mode))
+    print("Custom Mode: {}".format(message.custom_mode))
+
+# Add the listener for the heartbeat message
+vehicle.add_message_listener('HEARTBEAT', heartbeat_listener)
 # Global variable for the RealSense profile
 profile = None
 
@@ -145,6 +154,7 @@ def navigate_avoiding_obstacles(depth_scale):
                 0, 0)  # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
             # send command to vehicle
             vehicle.send_mavlink(msg)
+
 
 
 
