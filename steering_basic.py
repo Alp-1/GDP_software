@@ -13,7 +13,15 @@ mavlink_connection.wait_heartbeat()
 print("Heartbeat from MAVLink system (system %u component %u)" % (
 mavlink_connection.target_system, mavlink_connection.target_component))
 
-vehicle = connect('/dev/serial0', wait_ready=True, baud=57600)
+try:
+    vehicle = connect('/dev/serial0', wait_ready=True, baud=57600)
+    # Your code to interact with the vehicle goes here
+except dronekit.APIException as e:
+    if "mode (0, 0) not available on mavlink definition" in str(e):
+        print("Received mode (0, 0), which is not a valid mode. Check vehicle state and firmware.")
+    else:
+        raise
+
 print("Base mode: ", vehicle.mode.name)
 print("Custom mode: ", vehicle._master.mavlink_version)
 
