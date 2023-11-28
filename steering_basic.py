@@ -4,8 +4,8 @@ import numpy as np
 import cv2
 import pyrealsense2 as rs
 from pymavlink import mavutil
-from dronekit import connect, VehicleMode
-
+# from dronekit import connect, VehicleMode, LocationGlobalRelative
+from dronekit import *
 # Connect to the vehicle
 mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)
 
@@ -25,6 +25,63 @@ vehicle = connect('/dev/serial0', wait_ready=True, baud=57600)
 print("Base mode: ", vehicle.mode.name)
 #print("Custom mode: ", vehicle._master.mavlink_version)
 
+def send_ned_velocity(velocity_x, velocity_y, velocity_z, duration):
+    """
+    Move vehicle in direction based on specified velocity vectors and
+    for the specified duration.
+
+    This uses the SET_POSITION_TARGET_LOCAL_NED command with a type mask enabling only 
+    velocity components 
+    (http://dev.ardupilot.com/wiki/copter-commands-in-guided-mode/#set_position_target_local_ned).
+    
+    Note that from AC3.3 the message should be re-sent every second (after about 3 seconds
+    with no message the velocity will drop back to zero). In AC3.2.1 and earlier the specified
+    velocity persists until it is canceled. The code below should work on either version 
+    (sending the message multiple times does not cause problems).
+    
+    See the above link for information on the type_mask (0=enable, 1=ignore). 
+    At time of writing, acceleration and yaw bits are ignored.
+    """
+    msg = vehicle.message_factory.set_position_target_local_ned_encode(
+        0,       # time_boot_ms (not used)
+        0, 0,    # target system, target component
+        mavutil.mavlink.MAV_FRAME_LOCAL_OFFSET_NED, # frame
+        0b110111100111, # type_mask (only speeds enabled)
+        0, 0, 0, # x, y, z positions (not used)
+        velocity_x, velocity_y, velocity_z, # x, y, z velocity in m/s
+        0, 0, 0, # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+        0, 0)    # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink) 
+
+    # send command to vehicle on 1 Hz cycle
+    for x in range(0,duration):
+        vehicle.send_mavlink(msg)
+        time.sleep(1)
+
+def send_global_velocity(velocity_x, velocity_y, velocity_z, duration):
+    """
+    Move vehicle in direction based on specified velocity vectors.
+    """
+    msg = vehicle.message_factory.set_position_target_global_int_encode(
+        0,       # time_boot_ms (not used)
+        0, 0,    # target system, target component
+        mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT, # frame
+        0b0000111111000111, # type_mask (only speeds enabled)
+        0, # lat_int - X Position in WGS84 frame in 1e7 * meters
+        0, # lon_int - Y Position in WGS84 frame in 1e7 * meters
+        0, # alt - Altitude in meters in AMSL altitude(not WGS84 if absolute or relative)
+        # altitude above terrain if GLOBAL_TERRAIN_ALT_INT
+        velocity_x, # X velocity in NED frame in m/s
+        velocity_y, # Y velocity in NED frame in m/s
+        velocity_z, # Z velocity in NED frame in m/s
+        0, 0, 0, # afx, afy, afz acceleration (not supported yet, ignored in GCS_Mavlink)
+        0, 0)    # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
+
+    # send command to vehicle on 1 Hz cycle
+    for x in range(0,duration):
+        vehicle.send_mavlink(msg)
+        time.sleep(1)
+
+
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
     print("Heartbeat received")
@@ -43,6 +100,12 @@ profile = None
 #     for channel, value in channels.items():
 #         channel_values[channel - 1] = value  # channels are 1-indexed in MAVLink
 #     vehicle.channels.overrides = channel_values
+
+
+#Create a message listener for all messages.
+@vehicle.on_message('*')
+def listener(self, name, message):
+    print ('message: %s' % message)
 
 
 # Function to clear RC overrides
@@ -121,6 +184,8 @@ def navigate_avoiding_obstacles(depth_scale):
             print("Clear path found. Setting heading and moving forward.")
             vehicle.mode = VehicleMode("GUIDED")
             print(vehicle.mode.name)
+            a_location = LocationGlobalRelative(-34.364114, 149.166022, 30)
+            vehicle.simple_goto(a_location)
             # override_rc({5: 1680})
             # Set the heading of the rover
             # set_position_target_local_ned(
@@ -140,31 +205,45 @@ def navigate_avoiding_obstacles(depth_scale):
             #     type_mask=0b110111000111
             # )
 
+
+
             # Set the heading of the rover
+            # msg = vehicle.message_factory.set_position_target_local_ned_encode(
+                # 0,  # time_boot_ms (not used)
+                # 0, 0,  # target_system, target_component
+                # mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
+                # 0b100111111111 ,  # type_mask (only speeds enabled)
+                # 0, 0, 0,  # x, y, z positions
+                # 0, 0, 0,  # x, y, z velocity in m/s
+                # 0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+                # clear_path_direction, 0)  # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
+            # # send command to vehicle
+            # vehicle.send_mavlink(msg)
+
+            # msg = vehicle.message_factory.set_position_target_local_ned_encode(
+                # 0,  # time_boot_ms (not used)
+                # 0, 0,  # target_system, target_component
+                # mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
+                # 0b0000111111000111,  # type_mask (only speeds enabled)
+                # 0, 0, 0,  # x, y, z positions
+                # 1, 0, 0,  # x, y, z velocity in m/s
+                # 0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+                # 0, 0)  # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
+            # # send command to vehicle
+            # vehicle.send_mavlink(msg)
+            
+            
             msg = vehicle.message_factory.set_position_target_local_ned_encode(
-                0,  # time_boot_ms (not used)
-                0, 0,  # target_system, target_component
-                mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
-                0b100111111111 ,  # type_mask (only speeds enabled)
-                0, 0, 0,  # x, y, z positions
-                0, 0, 0,  # x, y, z velocity in m/s
-                0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
-                clear_path_direction, 0)  # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
+            0,       # time_boot_ms (not used)
+            0, 0,    # target_system, target_component
+            mavutil.mavlink.MAV_FRAME_BODY_NED, # frame
+            0b0000111111000111, # type_mask (only speeds enabled)
+            0, 0, 0, # x, y, z positions
+            1, 0, 0, # x, y, z velocity in m/s
+            0, 0, 0, # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+            0, 0)    # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
             # send command to vehicle
             vehicle.send_mavlink(msg)
-
-            msg = vehicle.message_factory.set_position_target_local_ned_encode(
-                0,  # time_boot_ms (not used)
-                0, 0,  # target_system, target_component
-                mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
-                0b0000111111000111,  # type_mask (only speeds enabled)
-                0, 0, 0,  # x, y, z positions
-                1, 0, 0,  # x, y, z velocity in m/s
-                0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
-                0, 0)  # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
-            # send command to vehicle
-            vehicle.send_mavlink(msg)
-
 
 
 
@@ -183,7 +262,8 @@ try:
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
     print("Depth Scale is: ", depth_scale)
-
+    vehicle.armed = True
+    send_ned_velocity(1,0,0,5)
     while True:
         navigate_avoiding_obstacles(depth_scale)
         # time.sleep(0.1)
