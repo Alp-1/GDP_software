@@ -64,24 +64,25 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
     path_center_x = 0
 
     # Scan each column in the depth image
-    for x in range(pixel_width_for_rover // 2, width - pixel_width_for_rover // 2):
-        column = depth_image_meters[:, x]
-        print("Column")
-        print(column)
-        # Check if this column is part of a clear path
-        if np.all(column > obstacle_threshold):
-            # Increment the width of the clear path
-            max_clear_path_width += 1
-            path_center_x += x
-        else:
-            # Check if the current clear path is wide enough for the rover
-            if max_clear_path_width >= pixel_width_for_rover:
-                break
-            else:
-                # Reset the path width and center
-                max_clear_path_width = 0
-                path_center_x = 0
-
+    # for x in range(pixel_width_for_rover // 2, width - pixel_width_for_rover // 2):
+    #     column = depth_image_meters[:, x]
+    #     print("Column")
+    #     print(column)
+    #     # Check if this column is part of a clear path
+    #     if np.all(column > obstacle_threshold):
+    #         # Increment the width of the clear path
+    #         max_clear_path_width += 1
+    #         path_center_x += x
+    #         break
+    #     else:
+    #         # Check if the current clear path is wide enough for the rover
+    #         if max_clear_path_width >= pixel_width_for_rover:
+    #             break
+    #         else:
+    #             # Reset the path width and center
+    #             max_clear_path_width = 0
+    #             path_center_x = 0
+    max_clear_path_width = pixel_width_for_rover
     # Check if a valid path was found
     if max_clear_path_width >= pixel_width_for_rover:
         # Calculate the center of the path
