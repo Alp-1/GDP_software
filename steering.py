@@ -45,6 +45,7 @@ rover_width = 0.5  # Adjust to your rover's width
 
 # Function to find a clear path and calculate its direction
 def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width):
+   
     # Convert depth image to meters
     depth_image_meters = depth_image * depth_scale
 
@@ -86,13 +87,14 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
 
         # Calculate the yaw angle (assuming straight ahead is 0 radians)
         yaw_angle = np.arctan2(path_center_x - (width / 2), height)
+        print(yaw_angle)
         return yaw_angle
 
     return None
 
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(depth_scale):
-    
+    print("ok")
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
     if not depth_frame:
