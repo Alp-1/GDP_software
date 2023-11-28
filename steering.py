@@ -114,13 +114,13 @@ def navigate_avoiding_obstacles(depth_scale):
             time.sleep(1)  # Allow time for mode switch
             print("sexy")
             # Set the heading of the rover
-            set_position_target_local_ned(
-                x=0, y=0, z=0,
-                vx=0, vy=0, vz=0,
-                yaw=clear_path_direction,
-                coordinate_frame=mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,
-                type_mask=0b111111111000
-            )
+            # set_position_target_local_ned(
+            #     x=0, y=0, z=0,
+            #     vx=0, vy=0, vz=0,
+            #     yaw=clear_path_direction,
+            #     coordinate_frame=mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,
+            #     type_mask=0b111111111000
+            # )
 
             # Move forward
             set_position_target_local_ned(
