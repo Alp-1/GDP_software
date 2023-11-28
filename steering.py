@@ -57,7 +57,7 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
 
     # Calculate the required pixel width of a clear path
     pixel_width_for_rover = int((rover_width / obstacle_threshold) * width)
-
+    print("pixel:" + pixel_width_for_rover)
     # Initialize variables for path detection
     max_clear_path_width = 0
     path_center_x = 0
@@ -65,7 +65,7 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
     # Scan each column in the depth image
     for x in range(pixel_width_for_rover // 2, width - pixel_width_for_rover // 2):
         column = depth_image_meters[:, x]
-        
+        print("column:"+column)
         # Check if this column is part of a clear path
         if np.all(column > obstacle_threshold):
             # Increment the width of the clear path
@@ -101,8 +101,9 @@ def navigate_avoiding_obstacles(depth_scale):
         return
 
     depth_image = np.asanyarray(depth_frame.get_data())
-    print("ok")
+    print(depth_image)
     if vehicle.mode.name == "GUIDED":
+        print("ok")
         clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         if clear_path_direction is not None:
             print("Clear path found. Setting heading and moving forward.")
