@@ -176,14 +176,14 @@ def navigate_avoiding_obstacles(depth_scale):
     depth_image = np.asanyarray(depth_frame.get_data())
     cv2.imshow("",depth_image)
     clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
-    print(clear_path_direction)
+    # print(clear_path_direction)
     # if vehicle.mode.name == "AUTO":
     if True:
         clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         if clear_path_direction is not None:
             print("Clear path found. Setting heading and moving forward.")
             vehicle.mode = VehicleMode("GUIDED")
-            print(vehicle.mode.name)
+            # print(vehicle.mode.name)
             a_location = LocationGlobalRelative(-34.364114, 149.166022, 30)
             vehicle.simple_goto(a_location)
             # override_rc({5: 1680})
