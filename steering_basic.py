@@ -250,12 +250,12 @@ def navigate_avoiding_obstacles(depth_scale):
 # Main execution loop
 try:
     # Get some vehicle attributes (state)
-    print ("Get some vehicle attribute values:")
+    # print ("Get some vehicle attribute values:")
     print (" GPS: %s" % vehicle.gps_0)
-    print (" Battery: %s" % vehicle.battery)
-    print (" Last Heartbeat: %s" % vehicle.last_heartbeat)
-    print (" Is Armable?: %s" % vehicle.is_armable)
-    print (" System status: %s" % vehicle.system_status.state)
+    # print (" Battery: %s" % vehicle.battery)
+    # print (" Last Heartbeat: %s" % vehicle.last_heartbeat)
+    # print (" Is Armable?: %s" % vehicle.is_armable)
+    # print (" System status: %s" % vehicle.system_status.state)
     print (" Mode: %s" % vehicle.mode.name)  # settable
 
     pipeline, profile = initialize_realsense()
