@@ -38,6 +38,7 @@ def set_position_target_local_ned(x, y, z, vx, vy, vz, yaw, coordinate_frame, ty
         yaw=yaw,
         yaw_rate=0
     )
+    print("work")
 
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
