@@ -94,21 +94,21 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
 
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(depth_scale):
-    print("ok")
+    
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
     if not depth_frame:
         return
 
     depth_image = np.asanyarray(depth_frame.get_data())
-
-    if vehicle.mode.name == "AUTO":
+    print("ok")
+    if vehicle.mode.name == "GUIDED":
         clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         if clear_path_direction is not None:
             print("Clear path found. Setting heading and moving forward.")
-            vehicle.mode = VehicleMode("GUIDED")
+            # vehicle.mode = VehicleMode("GUIDED")
             time.sleep(1)  # Allow time for mode switch
-
+            print("sexy")
             # Set the heading of the rover
             set_position_target_local_ned(
                 x=0, y=0, z=0,
