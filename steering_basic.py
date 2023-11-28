@@ -8,22 +8,41 @@ from dronekit import connect, VehicleMode
 
 # Connect to the vehicle
 mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)
+
 mavlink_connection.wait_heartbeat()
 print("Heartbeat from MAVLink system (system %u component %u)" % (
 mavlink_connection.target_system, mavlink_connection.target_component))
 
+#try:
 vehicle = connect('/dev/serial0', wait_ready=True, baud=57600)
+    # Your code to interact with the vehicle goes here
+#except dronekit.APIException as e:
+#    if "mode (0, 0) not available on mavlink definition" in str(e):
+ #       print("Received mode (0, 0), which is not a valid mode. Check vehicle state and firmware.")
+  #  else:
+   #     raise
 
+print("Base mode: ", vehicle.mode.name)
+#print("Custom mode: ", vehicle._master.mavlink_version)
+
+# Function to be called whenever HEARTBEAT messages are received
+def heartbeat_listener(self, name, message):
+    print("Heartbeat received")
+    print("Base Mode: {}".format(message.base_mode))
+    print("Custom Mode: {}".format(message.custom_mode))
+
+# Add the listener for the heartbeat message
+#vehicle.add_message_listener('HEARTBEAT', heartbeat_listener)
 # Global variable for the RealSense profile
 profile = None
 
 
 # Function to override RC channels
-def override_rc(channels):
-    channel_values = [0] * 8  # there are eight RC channels on most systems
-    for channel, value in channels.items():
-        channel_values[channel - 1] = value  # channels are 1-indexed in MAVLink
-    vehicle.channels.overrides = channel_values
+# def override_rc(channels):
+#     channel_values = [0] * 8  # there are eight RC channels on most systems
+#     for channel, value in channels.items():
+#         channel_values[channel - 1] = value  # channels are 1-indexed in MAVLink
+#     vehicle.channels.overrides = channel_values
 
 
 # Function to clear RC overrides
@@ -102,7 +121,7 @@ def navigate_avoiding_obstacles(depth_scale):
             print("Clear path found. Setting heading and moving forward.")
             vehicle.mode = VehicleMode("GUIDED")
             print(vehicle.mode.name)
-            override_rc({5: 1680})
+            # override_rc({5: 1680})
             # Set the heading of the rover
             # set_position_target_local_ned(
             #     x=0, y=0, z=0,
@@ -148,6 +167,7 @@ def navigate_avoiding_obstacles(depth_scale):
 
 
 
+
 # Main execution loop
 try:
     # Get some vehicle attributes (state)
@@ -172,7 +192,7 @@ except KeyboardInterrupt:
     print("Script terminated by user")
 
 finally:
-    clear_rc_overrides()
+    # clear_rc_overrides()
     pipeline.stop()
     cv2.destroyAllWindows()
     vehicle.close()
