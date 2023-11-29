@@ -11,6 +11,7 @@
 from array import array
 import rp2
 import time
+from machine import time_pulse_us
 
 
 # Closure enables Viper to retain state. Currently (V1.17) nonlocal doesn't
@@ -40,8 +41,10 @@ def make_isr(pos):
 class Encoder:
     def __init__(self, sm_no, base_pin, scale=1):
         self.scale = scale
-        self.measurement_time = 2_000  # 10ms
+        self.measurement_time = 10_000  # 10ms
         self._pos = array("i", (0,))  # [pos]
+        self.base_pin = base_pin
+        self.sm_no = sm_no
         self.sm = rp2.StateMachine(sm_no, self.pio_quadrature, in_base=base_pin)
         self.sm.irq(make_isr(self._pos))  # Instantiate the closure
         self.sm.exec("set(y, 99)")  # Initialise y: guarantee different to the input
@@ -62,6 +65,15 @@ class Encoder:
         mov(y, x)
         wrap()
 
+    def reset_sm(self):
+        self.sm.restart()
+
+    def is_active(self):
+        """A crude way to check if the encoder is running."""
+        if time_pulse_us(self.base_pin, 1, self.measurement_time) < 0:
+            return False
+        return True
+
     def position(self, value=None):
         if value is not None:
             self._pos[0] = round(value / self.scale)
@@ -79,4 +91,4 @@ class Encoder:
         while time.ticks_diff(time.ticks_us(), start_time) < self.measurement_time:
             pass
         position_moved = self._pos[0] - start_pos
-        return position_moved / self.measurement_time * 1_000_000
+        return position_moved / time.ticks_diff(time.ticks_us(), start_time) * 1_000_000
