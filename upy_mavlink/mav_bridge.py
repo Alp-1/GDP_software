@@ -17,7 +17,8 @@ from upy_mavlink.src.mavlite import MavLink, UART
 m_id = [36, 251, 512]
 mavobj = MavLink(message_ids=m_id)
 
-lock = Lock()
+mavlink_lock = Lock()
+
 
 async def mavlink_main():
     """Main loop to receive and transmit data"""
@@ -25,18 +26,21 @@ async def mavlink_main():
         UART(s_id=0, baudrate=57600, tx=Pin(16), rx=Pin(17)),
         debug=False,
     )
+    # [write_loop, read_loop, heartbeat_loop, command_listener]
     await asyncio.gather(
-        tasks[0], tasks[2],
+        tasks[0],
+        tasks[2],
     )
 
+
 async def send_name_value_floats(
-        name: str,
-        value: float,
-        lock: Lock,
+    name: str,
+    value: float,
 ):
-    await lock.acquire()
+    """Send a name and value to the flight controller"""
+    await mavlink_lock.acquire()
     await mavobj.send_message(
         message_id=251,
         payload=[time.ticks_ms(), name, value],
     )
-    lock.release()
+    mavlink_lock.release()
