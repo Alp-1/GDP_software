@@ -304,9 +304,6 @@ class CentralHub:
             OnBoardLED.set_period_ms(500)
             self.configure_controllers(enable=False)
             self.state = self.PAUSED
-        elif self.state == self.FAULT:
-            # Clear the FAULT state since the emergency stop is released
-            self.state = self.state_selector
 
     async def command_loop(self):
         """The main command loop. Call this method to update the speed command periodically."""
