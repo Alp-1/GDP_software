@@ -33,8 +33,7 @@ class UART:
             rx: any = None
     ):
         if self.mp:
-            self.uart = self.uart(s_id, baudrate)
-            self.uart.init(baudrate, bits=bits, parity=parity, stop=stop, timeout=timeout, tx=tx, rx=rx)
+            self.uart = self.uart(s_id, baudrate=baudrate, bits=bits, parity=parity, stop=stop, timeout=timeout, tx=tx, rx=rx)
         else:
             self.uart = self.uart(
                 tx, rx,
@@ -163,8 +162,7 @@ async def uart_read(_uart: any = None, callback: any = None, debug: bool = False
                     try:
                         if 12 <= len(p) <= 280:  # 12 is the minimum MavLink packet length.
                             if debug:
-                                # print('--------------------')
-                                pass
+                                print('--------------------')
                             try:
                                 message_id = struct.unpack("H", bytes(p[7:9]))[0]
                             except (RuntimeError, ValueError) as err:
@@ -176,11 +174,13 @@ async def uart_read(_uart: any = None, callback: any = None, debug: bool = False
                             try:  # Prevent a failure from snowballing into logic down the line.
                                 crc = struct.unpack("H", bytes(p[pay_end:pay_end + 2]))[0]
                             except RuntimeError as err:
-                                print(err, 'unable to decode crc\n', p, '\n', bytes(p))
+                                if debug:
+                                    print(err, 'unable to decode crc\n', p, '\n', bytes(p))
                                 del packets[idx]  # Clear memory.
                                 break  # Prevent a failure from snowballing into logic down the line.
                             except ValueError as err:
-                                print(err, 'unable to decode crc\n', p, pay_end, '\n', bytes(p[pay_end:pay_end + 2]))
+                                if debug:
+                                    print(err, 'unable to decode crc\n', p, pay_end, '\n', bytes(p[pay_end:pay_end + 2]))
                                 del packets[idx]
                                 break
                             chk = p[1:pay_end]
@@ -224,7 +224,7 @@ async def uart_write(_uart: any, debug: bool = False):
     global write_buffer
     if len(write_buffer):
         for idx, packet in enumerate(write_buffer):
-            if debug and False:
+            if debug:
                 p = list(packet)
                 pay_end = 10 + p[1]
                 msg = f'start {p[0]}, length {p[1]}, incompat {p[2]}, compat {p[3]}, seq {p[4]}, sys_id {p[5]}, '

@@ -152,8 +152,7 @@ async def crc_check(pack: dict, debug: bool = False) -> bool:
             print('CRC check passed')
     except KeyError:
         if debug:
-            pass
-            # print('Skipping CRC for unincluded message_id', pack['message_id'])
+            print('Skipping CRC for unincluded message_id', pack['message_id'])
     return result
 
 
