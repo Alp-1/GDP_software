@@ -61,8 +61,7 @@ class Sabertooth:
         speed: float
             The speed to drive the motor at (-100: full reverse, 0: stop, 100: full forward)
         """
-        if abs(speed) > 100:
-            raise Exception("Sabertooth, invalid speed {}".format(speed))
+        speed = min(max(speed, -100), 100)
 
         if motor_id == 1:
             if speed < 0:
@@ -93,11 +92,8 @@ class Sabertooth:
         turn: float
             The turn value (-100: full left, 0: straight, 100: full right)
         """
-        if abs(speed) > 100:
-            raise Exception("Sabertooth, invalid speed {}".format(speed))
-
-        if abs(turn) > 100:
-            raise Exception("Sabertooth, invalid turn {}".format(turn))
+        speed = min(max(speed, -100), 100)
+        turn = min(max(turn, -100), 100)
 
         if speed < 0:
             drive_command = self.REVERSE_MIXED
