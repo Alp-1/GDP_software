@@ -8,12 +8,12 @@ from motor_controller.pid import PID
 from protocol import Commands
 from user_interface.led import OnBoardLED
 
-LEFT_MOTOR_ID = 2
+LEFT_MOTOR_ID = 1
 LEFT_MOTOR_ENCODER_PIN = 12
 LEFT_MOTOR_SM = 0
 LEFT_MOTOR_CURRENT_PIN = 2
 
-RIGHT_MOTOR_ID = 1
+RIGHT_MOTOR_ID = 2
 RIGHT_MOTOR_ENCODER_PIN = 14
 RIGHT_MOTOR_SM = 1
 RIGHT_MOTOR_CURRENT_PIN = 1
@@ -26,7 +26,6 @@ SABERTOOTH_BAUDRATE = 9600
 SABERTOOTH_TX_PIN = 0
 SABERTOOTH_RX_PIN = 1  # Irrelevant
 
-SIZE_OF_FLOAT = 4
 
 # A flag to test the control loop without the current sensor
 # Remove this flag for normal operation
@@ -36,15 +35,18 @@ CURRENT_SENSOR_ABSENT = False
 class MotorController:
     """Controls the motor speed using the signals coming from the central hub"""
 
-    ENABLED = False
-
-    THRESHOLD_CURRENT = 20  # Amps
-    PID_PERIOD_MS = 10
+    THRESHOLD_CURRENT = 15  # Amps
+    OVERCURRENT_TIMEOUT_MS = 1000  # ms
+    PID_PERIOD_MS = 200  # Encoder is 10ms + overhead
     MAIN_LOOP_PERIOD_MS = 1
+    SENSOR_UPDATE_PERIOD_MS = 2000  # Update the sensor every 2000ms
 
     # Speed setpoint range
     MAX_SPEED_RPM = 145
     MIN_SPEED_RPM = -145
+
+    MIXED = 0
+    DIRECT_RC = 1
 
     def __init__(
         self,
@@ -109,6 +111,7 @@ class MotorController:
         self.right_speed_command = 0
         self.turn = 0
 
+        self.current_mode = self.MIXED
         self._previous_turn = 0  # Attribute to detect mode change
 
         self.pid_left = PID(
@@ -161,8 +164,37 @@ class MotorController:
 
     def overcurrent_check(self):
         """Stop the motors if overcurrent is detected. At the moment both motors will be stopped"""
-        if self.is_overcurrent(LEFT_MOTOR_ID) or self.is_overcurrent(RIGHT_MOTOR_ID):
+        fault = False
+        result_left = self.is_overcurrent(LEFT_MOTOR_ID)
+        result_right = self.is_overcurrent(RIGHT_MOTOR_ID)
+        while result_left or result_right:
+            if not fault:
+                start = time.ticks_ms()
+                while (
+                    time.ticks_diff(time.ticks_ms(), start)
+                    < self.OVERCURRENT_TIMEOUT_MS
+                ):
+                    result_left = self.is_overcurrent(LEFT_MOTOR_ID)
+                    result_right = self.is_overcurrent(RIGHT_MOTOR_ID)
+                    if (not result_left) and (not result_right):
+                        return
+                print("Overcurrent")
+                # Overcurrent over the timeout period
+                OnBoardLED.set_period_ms(100)
+                fault = True
+            else:
+                time.sleep_ms(self.OVERCURRENT_TIMEOUT_MS)
+                result_left = self.is_overcurrent(LEFT_MOTOR_ID)
+                result_right = self.is_overcurrent(RIGHT_MOTOR_ID)
+
             self.drive(0, 0)
+            self.central_hub_interface.write(Commands.OVERCURRENT_COMMAND)
+
+        if fault:
+            if self.current_mode == self.MIXED:
+                OnBoardLED.set_period_ms(2000)
+            elif self.current_mode == self.DIRECT_RC:
+                OnBoardLED.set_period_ms(1000)
 
     def send_currents(self):
         """Send the current values to the central hub"""
@@ -261,8 +293,10 @@ class MotorController:
         """Allow the class to set the timer period once per mode change"""
         if self._previous_turn is not None and self.turn is None:
             # mode change
+            self.current_mode = self.MIXED
             OnBoardLED.set_period_ms(2000)
         elif self._previous_turn is None and self.turn is not None:
+            self.current_mode = self.DIRECT_RC
             OnBoardLED.set_period_ms(1000)
         self._previous_turn = self.turn
 
