@@ -44,6 +44,7 @@ class CentralHub:
     COMMAND_LOOP_PERIOD_MS = 100
     E_STOP_CHECK_PERIOD_MS = 10
 
+    SABERTOOTH_ESTOP_PIN = 22  # Connect to S2 pin of Sabertooth
 
     # The number of missing messages before resetting the state machine
     SOFT_UART_RESET_COUNT = 50
@@ -130,16 +131,17 @@ class CentralHub:
 
     def stop_motor(self):
         """Stop the motor by both setting the speed to 0 and pull down the S2 pin"""
-        self.e_stop_pin.value(0)
-        self.front_wheel_controller.write(self.STOP_COMMAND)
-        self.rear_wheel_controller.write(self.STOP_COMMAND)
+        print("Motor stopped")
+        self.e_stop_pin.value(1)
+        for controller in self.controllers.values():
+            controller.write(self.STOP_COMMAND)
 
     def fault_check(self):
         """Stop the motor and set the current mode to FAULT if the emergency stop switch is triggered"""
         if self.emergency_stop:
             self.stop_motor()
             return True
-        self.e_stop_pin.value(1)  # Release the emergency stop if it is not triggered
+        self.e_stop_pin.value(0)  # Release the emergency stop if it is not triggered
         return False
 
     # fmt: off
