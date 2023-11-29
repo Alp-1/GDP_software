@@ -1,0 +1,48 @@
+(kicad_sch (version 20230121) (generator eeschema)
+
+  (uuid e69e2e1e-a9af-4127-a558-2cc8fb636c94)
+
+  (paper "A4")
+
+  (lib_symbols
+  )
+
+
+  (sheet (at 158.75 20.32) (size 68.58 69.85) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid 3cdc7592-7801-4066-8300-d738546f36dd)
+    (property "Sheetname" "power supply" (at 158.75 19.6084 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "power_supply.kicad_sch" (at 158.75 90.7546 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (instances
+      (project "rover"
+        (path "/e69e2e1e-a9af-4127-a558-2cc8fb636c94" (page "5"))
+      )
+    )
+  )
+
+  (sheet (at 27.94 19.05) (size 74.93 66.04) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid 8350866f-b296-4194-b8e5-2cec92f34e35)
+    (property "Sheetname" "low level control" (at 27.94 18.3384 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "low_level_control.kicad_sch" (at 27.94 85.6746 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (instances
+      (project "rover"
+        (path "/e69e2e1e-a9af-4127-a558-2cc8fb636c94" (page "4"))
+      )
+    )
+  )
+
+  (sheet_instances
+    (path "/" (page "1"))
+  )
+)

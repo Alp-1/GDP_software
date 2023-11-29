@@ -1,0 +1,72 @@
+(kicad_sch (version 20230121) (generator eeschema)
+
+  (uuid b25ac29e-520d-41f2-abb8-06d06747f6d6)
+
+  (paper "A4")
+
+  (lib_symbols
+  )
+
+
+  (sheet (at 19.05 111.76) (size 55.88 59.69) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid 287896c2-ba29-4646-9325-bc5db50cda10)
+    (property "Sheetname" "motor_controller_front" (at 19.05 111.0484 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "motor_controller.kicad_sch" (at 19.05 172.0346 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (pin "TX_UART" input (at 19.05 132.08 180)
+      (effects (font (size 1.27 1.27)) (justify left))
+      (uuid 2543efb3-3b17-452f-ad05-d8d337775455)
+    )
+    (instances
+      (project "rover"
+        (path "/e69e2e1e-a9af-4127-a558-2cc8fb636c94" (page "3"))
+        (path "/e69e2e1e-a9af-4127-a558-2cc8fb636c94/8350866f-b296-4194-b8e5-2cec92f34e35" (page "3"))
+      )
+    )
+  )
+
+  (sheet (at 172.72 26.67) (size 55.88 59.69) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid 47de232d-0f73-4c94-9f7d-6f96c0485431)
+    (property "Sheetname" "motor_controller_rear" (at 172.72 25.9584 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "motor_controller.kicad_sch" (at 172.72 86.9446 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (pin "TX_UART" input (at 172.72 41.91 180)
+      (effects (font (size 1.27 1.27)) (justify left))
+      (uuid 6ffa0484-c101-4f3e-8c61-f758aa395310)
+    )
+    (instances
+      (project "rover"
+        (path "/e69e2e1e-a9af-4127-a558-2cc8fb636c94" (page "3"))
+        (path "/e69e2e1e-a9af-4127-a558-2cc8fb636c94/8350866f-b296-4194-b8e5-2cec92f34e35" (page "6"))
+      )
+    )
+  )
+
+  (sheet (at 22.86 25.4) (size 114.3 69.85) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid e9c65542-b8c8-4c65-8fa9-1039ffc51836)
+    (property "Sheetname" "central_hub" (at 22.86 24.6884 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "central_hub.kicad_sch" (at 22.86 95.8346 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (instances
+      (project "rover"
+        (path "/e69e2e1e-a9af-4127-a558-2cc8fb636c94" (page "2"))
+        (path "/e69e2e1e-a9af-4127-a558-2cc8fb636c94/8350866f-b296-4194-b8e5-2cec92f34e35" (page "2"))
+      )
+    )
+  )
+)
