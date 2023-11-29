@@ -13,50 +13,82 @@ class Commands:
     ENABLE = b"\x80"
     DISABLE = b"\x82"
     ACK = b"\x83"
-    GET_CURRENTS = b"\x01"
-    GET_ENCODERS = b"\x02"  # Unused
     SET_SPEED_MIXED = b"\x10"
     SET_SPEED_LEFT_RIGHT = b"\x11"
     RESP_CURRENTS = b"\x21"
+    RESP_ENCODERS = b"\x22"
+    OVERCURRENT = b"\x23"
     UNKNOWN = b"\xFF"
+
+    buffer = [bytearray(), bytearray()]
+    MAX_BUFFER_SIZE = 16
 
     def __init__(self):
         pass
 
     @staticmethod
-    def parse_command(command):
-        """Parse a command into list of tuples of the form (command_type, command_data)"""
+    def accumulate_command(new_data, id):
+        """Try to find the header and footer of a command in a string"""
 
-        while HEADER in command:
-            # Extract content between header and footer
-            command = command[command.index(HEADER) + len(HEADER) :]
-            current_command = command[: command.index(FOOTER)]
-            print(current_command)
-            command = command[len(current_command) + len(FOOTER) :]
-            command_type = bytes([current_command[0]])
+        Commands.buffer[id] += new_data
+        # print("buffer ", id, Commands.buffer[id])
+        header_idx = Commands.buffer[id].find(HEADER)
+        if header_idx == -1:
+            Commands.buffer[id] = bytearray()
+            return None
+        else:
+            Commands.buffer[id] = Commands.buffer[id][header_idx:]
 
+        footer_idx = Commands.buffer[id].find(FOOTER)
+        if footer_idx != -1:
+            command = Commands.buffer[id][: footer_idx + len(FOOTER)]
+            Commands.buffer[id] = Commands.buffer[id][footer_idx + len(FOOTER) :]
+            return command
+        else:
+            if len(Commands.buffer[id]) > Commands.MAX_BUFFER_SIZE:
+                Commands.buffer[id] = bytearray()
+            return None
+
+    @staticmethod
+    def parse_command(command, id=0):
+        """Parse a command and return the next command in the form (command_type, command_data)"""
+
+        command = Commands.accumulate_command(command, id)
+        if command is None:
+            return None  # No valid command found, wait for more data
+        # print("protocol", command)
+        # Trim the header and footer
+        trimmed_command = command[len(HEADER) : -len(FOOTER)]
+        command_type = bytes([trimmed_command[0]])
+
+        try:
             # Check if command is valid
             if command_type == Commands.ENABLE:
-                yield (Commands.ENABLE, None)
+                return (Commands.ENABLE, None)
             elif command_type == Commands.DISABLE:
-                yield (Commands.DISABLE, None)
+                return (Commands.DISABLE, None)
             elif command_type == Commands.ACK:
-                yield (Commands.ACK, None)
-            elif command_type == Commands.GET_CURRENTS:
-                yield (Commands.GET_CURRENTS, None)
-            elif command_type == Commands.GET_ENCODERS:
-                yield (Commands.GET_ENCODERS, None)
+                return (Commands.ACK, None)
             elif command_type == Commands.SET_SPEED_MIXED:
-                speed_command, turn = ustruct.unpack("ff", current_command[1:])
-                yield (Commands.SET_SPEED_MIXED, (speed_command, turn))
+                speed_command, turn = ustruct.unpack("ff", trimmed_command[1:])
+                return (Commands.SET_SPEED_MIXED, (speed_command, turn))
             elif command_type == Commands.SET_SPEED_LEFT_RIGHT:
-                left, right = ustruct.unpack("ff", current_command[1:])
-                yield (Commands.SET_SPEED_LEFT_RIGHT, (left, right))
+                left, right = ustruct.unpack("ff", trimmed_command[1:])
+                return (Commands.SET_SPEED_LEFT_RIGHT, (left, right))
             elif command_type == Commands.RESP_CURRENTS:
-                left, right = ustruct.unpack("ff", current_command[1:])
-                yield (Commands.RESP_CURRENTS, (left, right))
+                left, right = ustruct.unpack("ff", trimmed_command[1:])
+                return (Commands.RESP_CURRENTS, (left, right))
+            elif command_type == Commands.RESP_ENCODERS:
+                left, right = ustruct.unpack("ii", trimmed_command[1:])
+                return (Commands.RESP_ENCODERS, (left, right))
+            elif command_type == Commands.OVERCURRENT:
+                return (Commands.OVERCURRENT, None)
             else:
-                yield (Commands.UNKNOWN, None)
+                return (Commands.UNKNOWN, None)
+        except ValueError:
+            print("ValueError for type", command_type)
+            print("trimmed_command", trimmed_command)
+            return (Commands.UNKNOWN, None)
 
     @staticmethod
     def generate_command(command: tuple):
@@ -69,10 +101,6 @@ class Commands:
             return bytearray(HEADER + Commands.DISABLE + FOOTER)
         elif command_type == Commands.ACK:
             return bytearray(HEADER + Commands.ACK + FOOTER)
-        elif command_type == Commands.GET_CURRENTS:
-            return bytearray(HEADER + Commands.GET_CURRENTS + FOOTER)
-        elif command_type == Commands.GET_ENCODERS:
-            return bytearray(HEADER + Commands.GET_ENCODERS + FOOTER)
         elif command_type == Commands.SET_SPEED_MIXED:
             speed_command, turn = command[1]
             return bytearray(
@@ -97,6 +125,16 @@ class Commands:
                 + ustruct.pack("ff", left, right)
                 + FOOTER
             )
+        elif command_type == Commands.RESP_ENCODERS:
+            left, right = command[1]
+            return bytearray(
+                HEADER
+                + Commands.RESP_ENCODERS
+                + ustruct.pack("ii", left, right)
+                + FOOTER
+            )
+        elif command_type == Commands.OVERCURRENT:
+            return bytearray(HEADER + Commands.OVERCURRENT + FOOTER)
         else:
             return bytearray()
 
@@ -105,3 +143,4 @@ class Commands:
 Commands.ACK_COMMAND = Commands.generate_command((Commands.ACK, None))
 Commands.ENABLE_COMMAND = Commands.generate_command((Commands.ENABLE, None))
 Commands.DISABLE_COMMAND = Commands.generate_command((Commands.DISABLE, None))
+Commands.OVERCURRENT_COMMAND = Commands.generate_command((Commands.OVERCURRENT, None))
