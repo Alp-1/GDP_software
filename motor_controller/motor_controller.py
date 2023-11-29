@@ -163,7 +163,31 @@ class MotorController:
         """Stop the motors if overcurrent is detected. At the moment both motors will be stopped"""
         if self.is_overcurrent(LEFT_MOTOR_ID) or self.is_overcurrent(RIGHT_MOTOR_ID):
             self.drive(0, 0)
-            self.ENABLED = False
+
+    def send_currents(self):
+        """Send the current values to the central hub"""
+        currents = (self.left_motor.current, self.right_motor.current)
+        out_command = Commands.generate_command(
+            (
+                Commands.RESP_CURRENTS,
+                currents,
+            )
+        )
+        self.central_hub_interface.write(out_command)
+
+    def send_encoders(self):
+        """Send the encoder values to the central hub"""
+        encoders = (
+            self.left_motor.encoder.position(),
+            self.right_motor.encoder.position(),
+        )
+        out_command = Commands.generate_command(
+            (
+                Commands.RESP_ENCODERS,
+                encoders,
+            )
+        )
+        self.central_hub_interface.write(out_command)
 
     def execute_command(self, command):
         """Parse the command from the central hub. The command can be:
@@ -179,43 +203,38 @@ class MotorController:
             True if the command is valid, False otherwise
         """
         valid = False
-        for command_type, command_value in Commands.parse_command(command):
-            valid = True  # At least one command is valid
+        parsed = Commands.parse_command(command)
+        if parsed is None:
+            return False
+        else:
+            valid = True
+            command_type, command_value = parsed
             print(command_type, command_value)
-            if self.ENABLED == False and command_type != Commands.ENABLE:
-                # Bad input as the motor is disabled
-                continue
-            if command_type == Commands.ENABLE:
-                self.ENABLED = True
-                self.central_hub_interface.write(Commands.ACK_COMMAND)
-                OnBoardLED.set_period_ms(1000)
-            elif command_type == Commands.DISABLE:
-                self.ENABLED = False
-                self.central_hub_interface.write(Commands.ACK_COMMAND)
-                OnBoardLED.set_period_ms(500)
-            elif command_type == Commands.GET_CURRENTS:
-                self.central_hub_interface.write(
-                    Commands.generate_command(
-                        (
-                            Commands.RESP_CURRENTS,
-                            (
-                                self.left_motor.current,
-                                self.right_motor.current,
-                            ),
-                        )
-                    )
-                )
-            elif command_type == Commands.GET_ENCODERS:
-                pass
-            elif command_type == Commands.SET_SPEED_MIXED:
+            if command_type == Commands.SET_SPEED_MIXED:
                 self.left_speed_command, self.turn = command_value
+                print("Left: {} Turn: {}".format(self.left_speed_command, self.turn))
                 self.drive(self.left_speed_command, 0, self.turn)
                 self.detect_mode_change()
             elif command_type == Commands.SET_SPEED_LEFT_RIGHT:
                 self.turn = None
-                self.left_speed_command, self.right_speed_command = command_value
-                self.pid_left.setpoint = self.rpm_to_setpoint(self.left_speed_command)
-                self.pid_right.setpoint = self.rpm_to_setpoint(self.right_speed_command)
+                # print("command_value", command_value)
+                self.left_speed_command = command_value[0]
+                self.right_speed_command = command_value[1]
+                self.set_pid_setpoint(
+                    self.pid_left, self.setpoint_to_rpm(self.left_speed_command)
+                )
+                self.set_pid_setpoint(
+                    self.pid_right, self.setpoint_to_rpm(self.right_speed_command)
+                )
+                print(
+                    "Left: {} Right: {}".format(
+                        self.left_speed_command, self.right_speed_command
+                    )
+                )
+                # self.pid_left.setpoint = self.setpoint_to_rpm(self.left_speed_command)
+                # self.pid_right.setpoint = self.setpoint_to_rpm(self.right_speed_command)
+                # self.pid_left.reset()
+                # self.pid_right.reset()
                 self.pid_update()
                 self.drive(self.left_speed_command, self.right_speed_command)
                 self.detect_mode_change()
@@ -227,6 +246,16 @@ class MotorController:
                 valid = False
 
         return valid
+
+    @classmethod
+    def set_pid_setpoint(cls, pid, value):
+        """Disable PID controller if the value is within the deadzone. Enable otherwise"""
+        if abs(value) < cls.PID_DEADZONE:
+            pid.setpoint = 0
+            pid.auto_mode = False
+        else:
+            pid.setpoint = value
+            pid.auto_mode = True
 
     def detect_mode_change(self):
         """Allow the class to set the timer period once per mode change"""
@@ -245,26 +274,48 @@ class MotorController:
         ) * 200 - 100
         return max(min(setpoint, 100), -100)
 
+    @staticmethod
+    def setpoint_to_rpm(setpoint):
+        """Convert a setpoint value within the range of -100 to 100 to a rpm value"""
+        rpm = (setpoint + 100) / 200 * (
+            MotorController.MAX_SPEED_RPM - MotorController.MIN_SPEED_RPM
+        ) + MotorController.MIN_SPEED_RPM
+        return max(
+            min(rpm, MotorController.MAX_SPEED_RPM), MotorController.MIN_SPEED_RPM
+        )
+
     def main_control_loop(self):
         """Inteprets the commands from the central hub and controls the motors"""
         OnBoardLED.on()
+        prev_sensor_time = time.ticks_ms()
 
         while True:  # Can be changed to use async to allow other tasks to run
             # The command will latch until a new command is received
             if not CURRENT_SENSOR_ABSENT:
                 self.overcurrent_check()
+            if (
+                time.ticks_diff(time.ticks_ms(), prev_sensor_time)
+                > self.SENSOR_UPDATE_PERIOD_MS
+            ):
+                self.send_currents()
+                self.send_encoders()
+                prev_sensor_time = time.ticks_ms()
             if self.central_hub_interface.any() != 0:
                 command = self.central_hub_interface.read()
                 self.execute_command(command)
-            if self.ENABLED:
-                if self.turn is not None:
-                    self.drive(self.left_speed_command, 0, self.turn)
-                else:
-                    # Run the PID control loop until a new command is received
-                    self.pid_update()
+
+            if self.turn is not None:
+                self.drive(self.left_speed_command, 0, self.turn)
             else:
-                # Stop the motor if the motor is disabled
-                self.drive(0, 0)
+                self.drive(self.left_speed_command, self.right_speed_command)
+                # if time.ticks_diff(time.ticks_ms(), self.pid_left._last_time) > self.PID_PERIOD_MS:
+                # Run the PID control loop until a new command is received
+                self.pid_update()
+            # else:
+            #     # Stop the motor if the motor is disabled
+            #     self.drive(0, 0)
+            #     self.pid_left.reset()
+            #     self.pid_right.reset()
 
             time.sleep_ms(self.MAIN_LOOP_PERIOD_MS)
 
