@@ -42,8 +42,10 @@ class MotorController:
     SENSOR_UPDATE_PERIOD_MS = 2000  # Update the sensor every 2000ms
 
     # Speed setpoint range
-    MAX_SPEED_RPM = 145
-    MIN_SPEED_RPM = -145
+    MAX_SPEED_RPM = 165
+    MIN_SPEED_RPM = -165
+    PID_RANGE = (MIN_SPEED_RPM // 2, MAX_SPEED_RPM // 2)
+    PID_DEADZONE = 5  # Prevent noise from causing the motor to oscillate
 
     MIXED = 0
     DIRECT_RC = 1
@@ -115,21 +117,21 @@ class MotorController:
         self._previous_turn = 0  # Attribute to detect mode change
 
         self.pid_left = PID(
-            Kp=0.125,
-            Ki=0.05,
-            Kd=0.025,
+            Kp=0.25,
+            Ki=0.001,
+            Kd=0.005,
             setpoint=0,
             sample_time=self.PID_PERIOD_MS,
-            output_limits=(self.MIN_SPEED_RPM, self.MAX_SPEED_RPM),
+            output_limits=self.PID_RANGE,
             time_fn=time.ticks_ms,
         )
         self.pid_right = PID(
-            Kp=0.125,
-            Ki=0.05,
-            Kd=0.025,
+            Kp=0.25,
+            Ki=0.001,
+            Kd=0.005,
             setpoint=0,
             sample_time=self.PID_PERIOD_MS,
-            output_limits=(self.MIN_SPEED_RPM, self.MAX_SPEED_RPM),
+            output_limits=self.PID_RANGE,
             time_fn=time.ticks_ms,
         )
 
@@ -356,14 +358,23 @@ class MotorController:
     def pid_update(self):
         """Execute one iteration of the PID control loop"""
         current_speed = [self.left_motor.rpm, self.right_motor.rpm]
-        left_input_rpm = self.pid_left(current_speed[0])
-        right_input_rpm = self.pid_right(current_speed[1])
+        left_input_rpm = 0
+        right_input_rpm = 0
+        if self.pid_left.auto_mode:
+            left_input_rpm = self.pid_left(current_speed[0], dt=self.PID_PERIOD_MS)
+        if self.pid_right.auto_mode:
+            right_input_rpm = self.pid_right(current_speed[1], dt=self.PID_PERIOD_MS)
         # Clip the speed command to the maximum speed
         self.left_speed_command = self.rpm_to_setpoint(left_input_rpm)
         self.right_speed_command = self.rpm_to_setpoint(right_input_rpm)
         print(
-            "Left: {} Right: {}; rpm: {}".format(
-                self.left_speed_command, self.right_speed_command, current_speed
+            "Left: {} ({}) Right: {} ({})\nrpm: {}\nerrors: {}".format(
+                self.left_speed_command,
+                left_input_rpm,
+                self.right_speed_command,
+                right_input_rpm,
+                current_speed,
+                (self.pid_left._last_error, self.pid_right._last_error),
             )
         )
         self.drive(self.left_speed_command, self.right_speed_command)
@@ -381,8 +392,10 @@ class MotorController:
         self.pid_left.reset()
         self.pid_right.reset()
         last_time = time.ticks_ms()
-        self.pid_left.setpoint = left_target_speed
-        self.pid_right.setpoint = right_target_speed
+        # self.pid_left.setpoint = self.set_pid_setpoint(left_target_speed, self.PID_DEADZONE)
+        # self.pid_right.setpoint = self.set_pid_setpoint(right_target_speed, self.PID_DEADZONE)
+        self.set_pid_setpoint(self.pid_left, left_target_speed)
+        self.set_pid_setpoint(self.pid_right, right_target_speed)
         iteration = 0
         try:
             while time.ticks_diff(time.ticks_ms(), last_time) < timeout:
@@ -396,13 +409,16 @@ class MotorController:
                     )
                 )
                 print("Last error at iteration {}: {}".format(iteration, last_error))
-                if all(abs(error) < rpm_error_threshold for error in last_error):
+                if rpm_error_threshold > 0 and all(
+                    abs(error) < rpm_error_threshold
+                    for error in last_error
+                    if error is not None
+                ):
                     break
+                time.sleep_ms(self.PID_PERIOD_MS)
         except KeyboardInterrupt:
             print("Keyboard interrupt")
         finally:
-            self.drive(0, 0)
-            self.drive(0, 0)
             self.drive(0, 0)
 
 
