@@ -14,4 +14,10 @@ __pycache__/
 # Pytest
 .pytest_cache/
 
+# Kicad
+*.bak
+*-bak
+*.bck
+*-backups
+fp-info-cache
 
