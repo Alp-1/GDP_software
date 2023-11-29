@@ -65,6 +65,8 @@ class SoftUART:
     def __init__(self, tx_sm_id, rx_sm_id, baudrate, tx, rx):
         """Initialize the UART."""
 
+        self.rx_sm_id = rx_sm_id
+        self.tx_sm_id = tx_sm_id
         # Set rx to input
         rx = Pin(rx, Pin.IN, Pin.PULL_UP)
         # Configure the RX state machine
@@ -94,7 +96,11 @@ class SoftUART:
     def make_isr(self):
         def rx_handler(sm):
             """Store the received byte in the buffer."""
-            self.buffer.append(sm.get(None, 24))
+            try:
+                self.buffer.append(sm.get(None, 24))
+            except Exception as e:
+                # Ignore this cycle and continue
+                print("Exception in SoftUART.make_isr(): {}".format(e))
 
         return rx_handler
 
@@ -113,9 +119,8 @@ class SoftUART:
         """Return the number of bytes in the RX buffer."""
         return len(self.buffer)
 
-
-if __name__ == "__main__":
-    UART_BAUD = 9600
-    PIN_BASE = 10
-
-    s_uart = SoftUART(0, 1, UART_BAUD, PIN_BASE, PIN_BASE + 1)
+    def reset_sm(self):
+        self.sm_rx.restart()
+        self.sm_tx.restart()
+        self.sm_rx.active(1)
+        self.sm_tx.active(1)

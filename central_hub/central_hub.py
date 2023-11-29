@@ -16,7 +16,7 @@ FRONT_WHEEL_CONTROLLER_RX_PIN = 1
 REAR_WHEEL_CONTROLLER_TX_PIN = 8
 REAR_WHEEL_CONTROLLER_RX_PIN = 9
 
-CONTROLLER_BAUDRATE = 9600
+CONTROLLER_BAUDRATE = 4800
 
 
 class CentralHub:
@@ -44,7 +44,9 @@ class CentralHub:
     COMMAND_LOOP_PERIOD_MS = 100
     E_STOP_CHECK_PERIOD_MS = 10
 
-    SABERTOOTH_ESTOP_PIN = 19  # Connect to S2 pin of Sabertooth
+
+    # The number of missing messages before resetting the state machine
+    SOFT_UART_RESET_COUNT = 50
 
     def __init__(
         self,

@@ -101,7 +101,7 @@ class MotorController:
         self.central_hub_interface = (
             UART(
                 1,
-                baudrate=9600,
+                baudrate=4800,
                 tx=Pin(CENTRAL_HUB_TX_PIN),
                 rx=Pin(CENTRAL_HUB_RX_PIN),
             )
