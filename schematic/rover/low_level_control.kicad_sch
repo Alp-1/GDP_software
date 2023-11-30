@@ -18,9 +18,13 @@
     (property "Sheetfile" "motor_controller.kicad_sch" (at 19.05 172.0346 0)
       (effects (font (size 1.27 1.27)) (justify left top))
     )
-    (pin "TX_UART" input (at 19.05 132.08 180)
-      (effects (font (size 1.27 1.27)) (justify left))
-      (uuid 2543efb3-3b17-452f-ad05-d8d337775455)
+    (pin "Central_Hub__RX" input (at 74.93 127 0)
+      (effects (font (size 1.27 1.27)) (justify right))
+      (uuid 7b48bf72-b6e0-4a66-b3ba-e29cbb3391e0)
+    )
+    (pin "Central_Hub__TX" input (at 74.93 138.43 0)
+      (effects (font (size 1.27 1.27)) (justify right))
+      (uuid e3ee91ac-6128-4b33-becd-ae3cd7c5865d)
     )
     (instances
       (project "rover"
@@ -40,9 +44,13 @@
     (property "Sheetfile" "motor_controller.kicad_sch" (at 172.72 86.9446 0)
       (effects (font (size 1.27 1.27)) (justify left top))
     )
-    (pin "TX_UART" input (at 172.72 41.91 180)
+    (pin "Central_Hub__RX" input (at 172.72 54.61 180)
       (effects (font (size 1.27 1.27)) (justify left))
-      (uuid 6ffa0484-c101-4f3e-8c61-f758aa395310)
+      (uuid 02acbbde-12ec-419b-9691-ee8ebfe91a34)
+    )
+    (pin "Central_Hub__TX" input (at 172.72 52.07 180)
+      (effects (font (size 1.27 1.27)) (justify left))
+      (uuid 228f2e9a-2db4-4d75-95ff-874bde8f9dcb)
     )
     (instances
       (project "rover"
