@@ -3,9 +3,11 @@ import time
 import numpy as np
 import cv2
 import pyrealsense2 as rs
+import json
 from pymavlink import mavutil
 # from dronekit import connect, VehicleMode, LocationGlobalRelative
 from dronekit import *
+
 # Connect to the vehicle
 mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)
 
@@ -15,12 +17,6 @@ mavlink_connection.target_system, mavlink_connection.target_component))
 
 #try:
 vehicle = connect('/dev/serial0', wait_ready=True, baud=57600)
-    # Your code to interact with the vehicle goes here
-#except dronekit.APIException as e:
-#    if "mode (0, 0) not available on mavlink definition" in str(e):
- #       print("Received mode (0, 0), which is not a valid mode. Check vehicle state and firmware.")
-  #  else:
-   #     raise
 
 print("Base mode: ", vehicle.mode.name)
 #print("Custom mode: ", vehicle._master.mavlink_version)
@@ -103,7 +99,7 @@ profile = None
 
 
 #Create a message listener for all messages.
-@vehicle.on_message('*')
+# @vehicle.on_message('*')
 def listener(self, name, message):
     print ('message: %s' % message)
 
@@ -118,8 +114,17 @@ def initialize_realsense():
     global profile
     pipeline = rs.pipeline()
     config = rs.config()
-    config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+    config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 60)  # RGB stream
+    config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 60)  # Depth stream
+    config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 200)  # Accelerometer data
+    config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 400)  # Gyroscope data
     profile = pipeline.start(config)
+
+    jsonObj = json.load(open("camera_settings.json"))
+    json_string = str(jsonObj).replace("'", '\"')
+    dev = profile.get_device()
+    advnc_mode = rs.rs400_advanced_mode(dev)
+    advnc_mode.load_json(json_string)
     return pipeline, profile
 
 
@@ -204,9 +209,6 @@ def navigate_avoiding_obstacles(depth_scale):
             #     coordinate_frame=mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,
             #     type_mask=0b110111000111
             # )
-
-
-
             # Set the heading of the rover
             # msg = vehicle.message_factory.set_position_target_local_ned_encode(
                 # 0,  # time_boot_ms (not used)
