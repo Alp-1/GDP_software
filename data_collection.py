@@ -5,6 +5,7 @@ import pyrealsense2 as rs
 import os
 import numpy as np
 import time
+import json
 np.set_printoptions(threshold=sys.maxsize)
 # Create a 'data' directory if it doesn't exist
 data_dir = 'data'
@@ -13,20 +14,25 @@ os.makedirs(data_dir, exist_ok=True)
 # Initialize the RealSense pipeline
 pipeline = rs.pipeline()
 config = rs.config()
-config.enable_stream(rs.stream.color, 1280, 800, rs.format.bgr8, 30)  # RGB stream
-config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)  # Depth stream
+# config.enable_stream(rs.stream.color, 1280, 800, rs.format.bgr8, 30)  # RGB stream
+config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 60)  # RGB stream
+config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 60)  # Depth stream
 config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 200)  # Accelerometer data
 config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 400)  # Gyroscope data
-
 profile = pipeline.start(config)
+
+jsonObj = json.load(open("camera_settings.json"))
+json_string= str(jsonObj).replace("'", '\"')
+dev = profile.get_device()
+advnc_mode = rs.rs400_advanced_mode(dev)
+advnc_mode.load_json(json_string)
 
 # Set the save frequency
 save_interval = 0.2  # in seconds
 last_save_time = 0
-# Getting the depth sensor's depth scale (see rs-align example for explanation)
+# Getting the depth sensor's depth scale
 depth_sensor = profile.get_device().first_depth_sensor()
 depth_scale = depth_sensor.get_depth_scale()
-print("Depth Scale is: ", depth_scale)
 count = 0
 try:
     while True:
@@ -49,7 +55,7 @@ try:
             # Save depth image
             depth_image = np.asanyarray(depth_frame.get_data())
             depth_image_meters = depth_image * depth_scale
-            
+
             # Save depth image
             depth_filename = os.path.join(data_dir, f'depth_{current_time}.png')
             cv2.imwrite(depth_filename, depth_image_meters)
