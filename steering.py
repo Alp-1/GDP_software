@@ -98,7 +98,6 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
 
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(depth_scale):
-    
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
     if not depth_frame:

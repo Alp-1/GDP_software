@@ -10,16 +10,13 @@ from dronekit import *
 
 # Connect to the vehicle
 mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)
-
 mavlink_connection.wait_heartbeat()
 print("Heartbeat from MAVLink system (system %u component %u)" % (
 mavlink_connection.target_system, mavlink_connection.target_component))
-
-#try:
 vehicle = connect('/dev/serial0', wait_ready=True, baud=57600)
 
-print("Base mode: ", vehicle.mode.name)
-#print("Custom mode: ", vehicle._master.mavlink_version)
+obstacle_threshold = 1.0
+
 
 def send_ned_velocity(velocity_x, velocity_y, velocity_z, duration):
     """
@@ -147,6 +144,14 @@ def set_position_target_local_ned(x, y, z, vx, vy, vz, yaw, coordinate_frame, ty
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
 
+def obstacle_ahead(depth_image, depth_scale):
+    depth_image_meters = depth_image * depth_scale
+    # Calculate the mean of the middle column
+    middle_column_mean = np.mean(depth_image_meters[:, depth_image_meters.shape[1] // 2])
+    if middle_column_mean<obstacle_threshold:
+        return True
+    else:
+        return False
 
 # Function to find a clear path and calculate its direction
 def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width):
@@ -155,14 +160,10 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
 
     # Threshold for what we consider an obstacle (in meters)
     obstacle_threshold = 1.0  # e.g., 1 meter
-
-    # Height and width of the depth image
-    height, width = depth_image_meters.shape
-    column_means = np.mean(depth_image, axis=0)
+    column_means = np.mean(depth_image_meters, axis=0)
     # Find the index of the column with the highest mean
     index_of_highest_mean = np.argmax(column_means)
     angle = index_of_highest_mean / len(column_means) * 87 - (87 / 2)
-    print("angle:", index_of_highest_mean / len(column_means) * 87 - (87 / 2))
     if angle>=0:
         yaw_angle = math.radians(angle)
     else:
@@ -180,17 +181,18 @@ def navigate_avoiding_obstacles(depth_scale):
 
     depth_image = np.asanyarray(depth_frame.get_data())
     cv2.imshow("",depth_image)
-    clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
-    # print(clear_path_direction)
-    # if vehicle.mode.name == "AUTO":
-    if True:
-        clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
-        if clear_path_direction is not None:
-            print("Clear path found. Setting heading and moving forward.")
+    print(vehicle.mode.name)
+    if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
+        if obstacle_ahead(depth_image,depth_scale):
             vehicle.mode = VehicleMode("GUIDED")
-            # print(vehicle.mode.name)
-            a_location = LocationGlobalRelative(-34.364114, 149.166022, 30)
-            vehicle.simple_goto(a_location)
+            clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
+            print(clear_path_direction)
+            # a_location = LocationGlobalRelative(-34.364114, 149.166022, 30)
+            # vehicle.simple_goto(a_location)
+            send_ned_velocity(1, 0, 0, 5)
+        else:
+            vehicle.mode = VehicleMode("AUTO")
+
             # override_rc({5: 1680})
             # Set the heading of the rover
             # set_position_target_local_ned(
@@ -234,32 +236,22 @@ def navigate_avoiding_obstacles(depth_scale):
             # # send command to vehicle
             # vehicle.send_mavlink(msg)
             
-            
-            msg = vehicle.message_factory.set_position_target_local_ned_encode(
-            0,       # time_boot_ms (not used)
-            0, 0,    # target_system, target_component
-            mavutil.mavlink.MAV_FRAME_BODY_NED, # frame
-            0b0000111111000111, # type_mask (only speeds enabled)
-            0, 0, 0, # x, y, z positions
-            1, 0, 0, # x, y, z velocity in m/s
-            0, 0, 0, # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
-            0, 0)    # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
-            # send command to vehicle
-            vehicle.send_mavlink(msg)
-
+            #
+            # msg = vehicle.message_factory.set_position_target_local_ned_encode(
+            # 0,       # time_boot_ms (not used)
+            # 0, 0,    # target_system, target_component
+            # mavutil.mavlink.MAV_FRAME_BODY_NED, # frame
+            # 0b0000111111000111, # type_mask (only speeds enabled)
+            # 0, 0, 0, # x, y, z positions
+            # 1, 0, 0, # x, y, z velocity in m/s
+            # 0, 0, 0, # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+            # 0, 0)    # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
+            # # send command to vehicle
+            # vehicle.send_mavlink(msg)
 
 
 # Main execution loop
 try:
-    # Get some vehicle attributes (state)
-    # print ("Get some vehicle attribute values:")
-    print (" GPS: %s" % vehicle.gps_0)
-    # print (" Battery: %s" % vehicle.battery)
-    # print (" Last Heartbeat: %s" % vehicle.last_heartbeat)
-    # print (" Is Armable?: %s" % vehicle.is_armable)
-    # print (" System status: %s" % vehicle.system_status.state)
-    print (" Mode: %s" % vehicle.mode.name)  # settable
-
     pipeline, profile = initialize_realsense()
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
@@ -268,7 +260,6 @@ try:
     send_ned_velocity(1,0,0,5)
     while True:
         navigate_avoiding_obstacles(depth_scale)
-        # time.sleep(0.1)
         time.sleep(1)
 except KeyboardInterrupt:
     print("Script terminated by user")
