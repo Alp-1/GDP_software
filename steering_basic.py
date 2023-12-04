@@ -52,28 +52,25 @@ def send_ned_yaw_pymavlink(velocity_x, velocity_y, velocity_z, yaw, duration):
             0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
             math.radians(yaw), 0)  # yaw, yaw_rate
         time.sleep(1)
-def spin_around_own_axis(yaw_rate, duration):
+def spin_rover(duration, left_speed, right_speed):
     """
-    Spin the rover around its own axis.
+    Spin the rover around its axis by setting opposite speeds on left and right wheel groups.
 
     Parameters:
-    yaw_rate (float): The yaw rate in degrees per second.
     duration (int): Duration to spin in seconds.
+    left_speed (int): Speed value for the left wheel group (1000-2000).
+    right_speed (int): Speed value for the right wheel group (1000-2000).
     """
-    for _ in range(duration):
-        mavlink_connection.mav.set_position_target_local_ned_send(
-            0,  # time_boot_ms (not used)
-            mavlink_connection.target_system,  # target system
-            mavlink_connection.target_component,  # target component
-            mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
-            0b0000111111111111,  # type_mask (ignore all except yaw rate)
-            0, 0, 0,  # x, y, z positions (not used)
-            0, 0, 0,  # x, y, z velocity (not used)
-            0, 0, 0,  # x, y, z acceleration (not used)
-            0, math.radians(yaw_rate))  # yaw, yaw_rate
-        time.sleep(1)
+    start_time = time.time()
+    while time.time() - start_time < duration:
+        override_rc_channels(left_speed, right_speed, 0, 0)
+        time.sleep(0.1)
 
- # Example: Move forward with a yaw angle of 45 degrees for 5 seconds
+    # Stop the rover after spinning
+    override_rc_channels(1500, 1500, 0, 0)
+
+
+
 
 def set_yaw_angle(yaw_angle, relative=False):
     """
@@ -262,7 +259,9 @@ def navigate_avoiding_obstacles(depth_scale):
         # Calculate new heading: turn left by 90 degrees
                 new_heading = (current_heading + 90) % 360
                 # Example usage
-                spin_around_own_axis(30, 5)  # Spin around at 30 degrees per second for 5 seconds
+                # Example usage: Spin the rover for 5 seconds
+# Assuming 1000 is full reverse, 1500 is stop, and 2000 is full forward.
+                spin_rover(5, 1000, 2000) 
 
         # Set the new yaw angle
         #         set_yaw_angle(new_heading, relative=False)
