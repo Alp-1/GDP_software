@@ -238,7 +238,7 @@ def navigate_avoiding_obstacles(depth_scale):
 
     depth_image = np.asanyarray(depth_frame.get_data())
     print(vehicle.mode.name)
-    if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
+    if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED" or vehicle.mode.name == "MANUAL":
         if detect_tall_vegetation(depth_image, depth_scale):
             print("Tall vegetation detected. Moving back.")
             move_back(2)  # Move back 2 steps
