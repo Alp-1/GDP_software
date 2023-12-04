@@ -212,7 +212,7 @@ def navigate_avoiding_obstacles(depth_scale):
             set_yaw_angle(new_heading, relative=False)
 
         # Move with the specified NED velocity while turning
-            send_ned_yaw_pymavlink(1, 0, 0, new_heading, 5)
+            send_ned_yaw_pymavlink(1, 1, 0, new_heading, 5)
             # send_ned_velocity(1,0,0,5)
         else:
             print("no obstacle ahead")
