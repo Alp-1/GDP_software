@@ -111,8 +111,18 @@ def listener(self, name, message):
 
 
 # Function to clear RC overrides
-def clear_rc_overrides():
-    vehicle.channels.overrides = {}
+def override_rc_channels(ch1, ch2, ch3, ch4):
+    """
+    Override RC channels using pymavlink.
+    ch1, ch2, ch3, ch4: Channel values (1000 to 2000)
+    """
+    mavlink_connection.mav.rc_channels_override_send(
+        mavlink_connection.target_system,  # target_system
+        mavlink_connection.target_component,  # target_component
+        ch1, ch2, ch3, ch4, 0, 0, 0, 0)  # channels 1-8 (set channels 5-8 to 0)
+
+
+
 
 
 # Initialize RealSense pipeline and profile
@@ -185,7 +195,27 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
         # yaw_angle = 360 + angle
     return yaw_angle
 
+vegetation_threshold = 0.017
+def detect_tall_vegetation(depth_image, depth_scale):
+    """
+    Detect tall vegetation in the path.
+    This is a placeholder function; you need to replace it with actual logic based on your sensor setup.
+    """
+    # Placeholder: Assume we detect vegetation if the mean depth in the central area is less than a threshold
+    central_area = depth_image[:, depth_image.shape[1] // 2]
+    mean_depth = np.mean(central_area * depth_scale)
+    if mean_depth < vegetation_threshold:  # vegetation_threshold is a predefined constant
+        return True
+    else:
+        return False
 
+def move_back(steps):
+    """
+    Move the rover back by a certain number of steps.
+    """
+    for _ in range(steps):
+        send_ned_velocity(-1, 0, 0, 1)
+            
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(depth_scale):
     obstacle_threshold = 1.0
@@ -197,26 +227,31 @@ def navigate_avoiding_obstacles(depth_scale):
     depth_image = np.asanyarray(depth_frame.get_data())
     print(vehicle.mode.name)
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
-        if obstacle_ahead(depth_image,depth_scale):
-            vehicle.mode = VehicleMode("GUIDED")
-            clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
+        if detect_tall_vegetation(depth_image, depth_scale):
+            print("Tall vegetation detected. Moving back.")
+            move_back(2)  # Move back 2 steps
+        else:
+            if obstacle_ahead(depth_image,depth_scale):
+                vehicle.mode = VehicleMode("GUIDED")
+                clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
             #print(clear_path_direction)
          
-            print("obstacle ahead")
-            current_heading = vehicle.heading
+                print("obstacle ahead")
+                current_heading = vehicle.heading
 
         # Calculate new heading: turn left by 90 degrees
-            new_heading = (current_heading + 90) % 360
+                new_heading = (current_heading + 90) % 360
 
         # Set the new yaw angle
-            set_yaw_angle(new_heading, relative=False)
+                set_yaw_angle(new_heading, relative=False)
 
         # Move with the specified NED velocity while turning
-            send_ned_yaw_pymavlink(1, 1, 0, new_heading, 5)
+                # send_ned_yaw_pymavlink(0, 1, 0, new_heading, 5)
             # send_ned_velocity(1,0,0,5)
-        else:
-            print("no obstacle ahead")
-            vehicle.mode = VehicleMode("AUTO")
+            else:
+                print("no obstacle ahead")
+                vehicle.mode = VehicleMode("AUTO")
+                override_rc_channels(1600, 1500, 0, 0)  # Override throttle and steering channels
 
 
 
