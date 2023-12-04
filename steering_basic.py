@@ -203,9 +203,16 @@ def navigate_avoiding_obstacles(depth_scale):
             #print(clear_path_direction)
          
             print("obstacle ahead")
-            set_yaw_angle(90, relative=False) 
-            # Usage example
-            send_ned_yaw_pymavlink(1, 0, 0, 45, 5) 
+            current_heading = vehicle.heading
+
+        # Calculate new heading: turn left by 90 degrees
+            new_heading = (current_heading + 90) % 360
+
+        # Set the new yaw angle
+            set_yaw_angle(new_heading, relative=False)
+
+        # Move with the specified NED velocity while turning
+            send_ned_yaw_pymavlink(1, 0, 0, new_heading, 5)
             # send_ned_velocity(1,0,0,5)
         else:
             print("no obstacle ahead")
