@@ -52,6 +52,26 @@ def send_ned_yaw_pymavlink(velocity_x, velocity_y, velocity_z, yaw, duration):
             0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
             math.radians(yaw), 0)  # yaw, yaw_rate
         time.sleep(1)
+def spin_around_own_axis(yaw_rate, duration):
+    """
+    Spin the rover around its own axis.
+
+    Parameters:
+    yaw_rate (float): The yaw rate in degrees per second.
+    duration (int): Duration to spin in seconds.
+    """
+    for _ in range(duration):
+        mavlink_connection.mav.set_position_target_local_ned_send(
+            0,  # time_boot_ms (not used)
+            mavlink_connection.target_system,  # target system
+            mavlink_connection.target_component,  # target component
+            mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
+            0b0000111111111111,  # type_mask (ignore all except yaw rate)
+            0, 0, 0,  # x, y, z positions (not used)
+            0, 0, 0,  # x, y, z velocity (not used)
+            0, 0, 0,  # x, y, z acceleration (not used)
+            0, math.radians(yaw_rate))  # yaw, yaw_rate
+        time.sleep(1)
 
  # Example: Move forward with a yaw angle of 45 degrees for 5 seconds
 
@@ -241,12 +261,14 @@ def navigate_avoiding_obstacles(depth_scale):
 
         # Calculate new heading: turn left by 90 degrees
                 new_heading = (current_heading + 90) % 360
+                # Example usage
+                spin_around_own_axis(30, 5)  # Spin around at 30 degrees per second for 5 seconds
 
         # Set the new yaw angle
-                set_yaw_angle(new_heading, relative=False)
+        #         set_yaw_angle(new_heading, relative=False)
 
-        # Move with the specified NED velocity while turning
-                # send_ned_yaw_pymavlink(0, 1, 0, new_heading, 5)
+        # # Move with the specified NED velocity while turning
+        #         send_ned_yaw_pymavlink(0, 1, 0, new_heading, 5)
             # send_ned_velocity(1,0,0,5)
             else:
                 print("no obstacle ahead")
