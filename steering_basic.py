@@ -64,6 +64,27 @@ def spin_rover(duration, left_speed, right_speed):
     # Stop the rover after spinning
     override_rc_channels(1500, 1500, 0, 0)
 
+def wait_for_turn_completion(yaw_angle, turn_rate=30):
+    """
+    Wait for the rover to complete its turn.
+
+    Parameters:
+    yaw_angle (float): The yaw angle in degrees.
+    turn_rate (float): Estimated turn rate in degrees per second.
+    """
+    turn_time = abs(yaw_angle / turn_rate)
+    time.sleep(turn_time)
+
+def turn_rover(yaw_angle, relative=True):
+    """
+    Turn the rover by a specified angle.
+
+    Parameters:
+    yaw_angle (float): The yaw angle in degrees. Positive values turn right, negative values turn left.
+    relative (bool): If True, the turn is relative to the current heading.
+    """
+    set_yaw_angle(yaw_angle, relative)
+    wait_for_turn_completion(yaw_angle)
 
 
 
@@ -278,10 +299,10 @@ try:
     depth_scale = depth_sensor.get_depth_scale()
     print("Depth Scale is: ", depth_scale)
     vehicle.armed = True
-    set_yaw_angle(90, relative=True)
+    turn_rover(90, relative=True)
 
-        # Move with the specified NED velocity while turning
-    send_ned_yaw_pymavlink(0, 1, 0, 90, 5)
+# After turning, stop any further movement
+    send_ned_yaw_pymavlink(0, 0, 0, 0, 1)
     while True:
         navigate_avoiding_obstacles(depth_scale)
         time.sleep(1)
