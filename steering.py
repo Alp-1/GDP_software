@@ -24,6 +24,12 @@ def initialize_realsense():
     profile = pipeline.start(config)
     return pipeline, profile
 
+def override_rc(channels):
+    """
+    Override RC channels.
+    channels: List of channel overrides [None or 500-2500, None or 500-2500, ...]
+    """
+    vehicle.channels.overrides = channels
 # Function to send SET_POSITION_TARGET_LOCAL_NED command
 def set_position_target_local_ned(x, y, z, vx, vy, vz, yaw, coordinate_frame, type_mask):
     mavlink_connection.mav.set_position_target_local_ned_send(
@@ -57,12 +63,11 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
 
     # Calculate the required pixel width of a clear path
     pixel_width_for_rover = int((rover_width / obstacle_threshold) * width)
-    print("pixel_width_for_rover")
-    print(pixel_width_for_rover)
+    
     # Initialize variables for path detection
     max_clear_path_width = 0
     path_center_x = 0
-
+    
     # Scan each column in the depth image
     # for x in range(pixel_width_for_rover // 2, width - pixel_width_for_rover // 2):
     #     column = depth_image_meters[:, x]
@@ -90,28 +95,28 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
 
         # Calculate the yaw angle (assuming straight ahead is 0 radians)
         yaw_angle = np.arctan2(path_center_x - (width / 2), height)
-        print("yaw_angle")
-        print(yaw_angle)
+        
         return yaw_angle
 
     return None
 
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(depth_scale):
+    
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
     if not depth_frame:
         return
 
     depth_image = np.asanyarray(depth_frame.get_data())
-    print(depth_image)
+    
     if vehicle.mode.name == "GUIDED":
         clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         if clear_path_direction is not None:
             print("Clear path found. Setting heading and moving forward.")
             # vehicle.mode = VehicleMode("GUIDED")
             time.sleep(1)  # Allow time for mode switch
-            print("sexy")
+            
             # Set the heading of the rover
             # set_position_target_local_ned(
             #     x=0, y=0, z=0,

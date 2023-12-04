@@ -50,23 +50,34 @@ def send_ned_yaw(velocity_x, velocity_y, velocity_z, yaw, duration):
         0, 0, 0, # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         yaw, 0)    # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
 
-def condition_yaw(heading, relative=False):
+def set_yaw_angle(yaw_angle, relative=False):
+    """
+    Set the yaw angle of the vehicle.
+
+    Parameters:
+    yaw_angle (float): The yaw angle in degrees.
+    relative (bool): Set to True if the provided yaw angle is relative to the current heading.
+    """
     if relative:
-        is_relative=1 #yaw relative to direction of travel
+        is_relative = 1  # yaw relative to direction of travel
     else:
-        is_relative=0 #yaw is an absolute angle
-    # create the CONDITION_YAW command using command_long_encode()
-    msg = vehicle.message_factory.command_long_encode(
-        0, 0,    # target system, target component
-        mavutil.mavlink.MAV_CMD_CONDITION_YAW, #command
-        0, #confirmation
-        heading,    # param 1, yaw in degrees
-        30,          # param 2, yaw speed deg/s
-        1,          # param 3, direction -1 ccw, 1 cw
-        is_relative, # param 4, relative offset 1, absolute angle 0
-        0, 0, 0)    # param 5 ~ 7 not used
-    # send command to vehicle
-    vehicle.send_mavlink(msg)
+        is_relative = 0  # yaw is an absolute angle
+
+    # Convert yaw angle to a valid range
+    yaw_angle = yaw_angle % 360
+
+    # Send COMMAND_LONG to set the yaw angle
+    mavlink_connection.mav.command_long_send(
+        mavlink_connection.target_system,  # target_system
+        mavlink_connection.target_component,  # target_component
+        mavutil.mavlink.MAV_CMD_CONDITION_YAW,  # command
+        0,  # confirmation
+        yaw_angle,  # param 1: yaw angle in degrees
+        0,  # param 2: yaw speed (not used)
+        1,  # param 3: direction (-1: CCW, 1: CW)
+        is_relative,  # param 4: relative or absolute
+        0, 0, 0  # params 5-7 (not used)
+    )
 
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
@@ -187,7 +198,7 @@ def navigate_avoiding_obstacles(depth_scale):
             #print(clear_path_direction)
          
             print("obstacle ahead")
-            #condition_yaw(30,False)
+            set_yaw_angle(90, relative=True) 
             send_ned_yaw(0,0,0,0.7,5)
             #send_ned_velocity(1,0,0,5)
         else:
