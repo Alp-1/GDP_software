@@ -52,6 +52,22 @@ def send_ned_yaw_pymavlink(velocity_x, velocity_y, velocity_z, yaw, duration):
             0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
             math.radians(yaw), 0)  # yaw, yaw_rate
         time.sleep(1)
+
+def send_ned_yaw_pymavlink_once(velocity_x, velocity_y, velocity_z, yaw):
+    """
+    Move vehicle in direction based on specified velocity vectors using pymavlink.
+"""
+    mavlink_connection.mav.set_position_target_local_ned_send(
+        0,  # time_boot_ms (not used)
+        mavlink_connection.target_system,  # target system
+        mavlink_connection.target_component,  # target component
+        mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
+        0b100111111111 ,  # type_mask (only speeds enabled)
+        0, 0, 0,  # x, y, z positions (not used)
+        velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
+        0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+        math.radians(yaw), 0)  # yaw, yaw_rate
+    time.sleep(1)
 def spin_rover(duration, left_speed, right_speed):
     
     start_time = time.time()
@@ -302,7 +318,8 @@ try:
     turn_rover(90, relative=True)
 
 # After turning, stop any further movement
-    send_ned_yaw_pymavlink(0, 0, 0, 0, 1)
+#     send_ned_yaw_pymavlink(0, 0, 0, 0, 1)
+    send_ned_yaw_pymavlink_once(0,0,0,90)
     while True:
         navigate_avoiding_obstacles(depth_scale)
         time.sleep(1)
