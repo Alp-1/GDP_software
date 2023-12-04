@@ -206,7 +206,7 @@ def navigate_avoiding_obstacles(depth_scale):
             set_yaw_angle(90, relative=True) 
             # Usage example
             send_ned_yaw_pymavlink(1, 0, 0, 45, 5) 
-            send_ned_velocity(1,0,0,5)
+            # send_ned_velocity(1,0,0,5)
         else:
             print("no obstacle ahead")
             vehicle.mode = VehicleMode("AUTO")
