@@ -36,19 +36,24 @@ def send_ned_velocity(velocity_x, velocity_y, velocity_z, duration):
         vehicle.send_mavlink(msg)
         time.sleep(1)
 
-def send_ned_yaw(velocity_x, velocity_y, velocity_z, yaw, duration):
+def send_ned_yaw_pymavlink(velocity_x, velocity_y, velocity_z, yaw, duration):
     """
-    Move vehicle in direction based on specified velocity vectors.
+    Move vehicle in direction based on specified velocity vectors using pymavlink.
     """
-    msg = vehicle.message_factory.set_position_target_local_ned_encode(
-        0,       # time_boot_ms (not used)
-        0, 0,    # target system, target component
-        mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED, # frame
-        0b100111111111, # type_mask (only speeds enabled)
-        0, 0, 0, # x, y, z positions (not used)
-        velocity_x, velocity_y, velocity_z, # x, y, z velocity in m/s
-        0, 0, 0, # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
-        yaw, 0)    # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
+    for _ in range(duration):
+        mavlink_connection.mav.set_position_target_local_ned_send(
+            0,  # time_boot_ms (not used)
+            mavlink_connection.target_system,  # target system
+            mavlink_connection.target_component,  # target component
+            mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
+            0b0000111111000111,  # type_mask (only speeds enabled)
+            0, 0, 0,  # x, y, z positions (not used)
+            velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
+            0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+            math.radians(yaw), 0)  # yaw, yaw_rate
+        time.sleep(1)
+
+ # Example: Move forward with a yaw angle of 45 degrees for 5 seconds
 
 def set_yaw_angle(yaw_angle, relative=False):
     """
@@ -199,7 +204,8 @@ def navigate_avoiding_obstacles(depth_scale):
          
             print("obstacle ahead")
             set_yaw_angle(90, relative=True) 
-            send_ned_yaw(0,0,0,0.7,5)
+            # Usage example
+            send_ned_yaw_pymavlink(1, 0, 0, 45, 5) 
             #send_ned_velocity(1,0,0,5)
         else:
             print("no obstacle ahead")
