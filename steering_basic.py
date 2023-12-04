@@ -278,7 +278,7 @@ try:
     depth_scale = depth_sensor.get_depth_scale()
     print("Depth Scale is: ", depth_scale)
     vehicle.armed = True
-    # set_yaw_angle(90, relative=False)
+    set_yaw_angle(90, relative=True)
 
         # Move with the specified NED velocity while turning
     send_ned_yaw_pymavlink(0, 1, 0, 90, 5)
