@@ -53,17 +53,12 @@ def send_ned_yaw_pymavlink(velocity_x, velocity_y, velocity_z, yaw, duration):
             math.radians(yaw), 0)  # yaw, yaw_rate
         time.sleep(1)
 def spin_rover(duration, left_speed, right_speed):
-    """
-    Spin the rover around its axis by setting opposite speeds on left and right wheel groups.
-
-    Parameters:
-    duration (int): Duration to spin in seconds.
-    left_speed (int): Speed value for the left wheel group (1000-2000).
-    right_speed (int): Speed value for the right wheel group (1000-2000).
-    """
+    
     start_time = time.time()
     while time.time() - start_time < duration:
-        override_rc_channels(left_speed, right_speed, 0, 0)
+        left_speed = 1200
+        right_speed = 1500
+        override_rc_channels(left_speed,right_speed,0,0)
         time.sleep(0.1)
 
     # Stop the rover after spinning
