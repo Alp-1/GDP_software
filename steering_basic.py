@@ -73,7 +73,8 @@ def wait_for_turn_completion(yaw_angle, turn_rate=30):
     turn_rate (float): Estimated turn rate in degrees per second.
     """
     turn_time = abs(yaw_angle / turn_rate)
-    time.sleep(turn_time)
+    send_ned_yaw_pymavlink(0, 1, 0, 90, turn_time)
+    
 
 def turn_rover(yaw_angle, relative=True):
     """
@@ -300,9 +301,6 @@ try:
     print("Depth Scale is: ", depth_scale)
     vehicle.armed = True
     turn_rover(90, relative=True)
-
-# After turning, stop any further movement
-    send_ned_yaw_pymavlink(0, 0, 0, 0, 1)
     while True:
         navigate_avoiding_obstacles(depth_scale)
         time.sleep(1)
