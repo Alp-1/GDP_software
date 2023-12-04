@@ -238,7 +238,7 @@ def navigate_avoiding_obstacles(depth_scale):
 
     depth_image = np.asanyarray(depth_frame.get_data())
     print(vehicle.mode.name)
-    if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED" or vehicle.mode.name == "MANUAL":
+    if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
         if detect_tall_vegetation(depth_image, depth_scale):
             print("Tall vegetation detected. Moving back.")
             move_back(2)  # Move back 2 steps
@@ -249,17 +249,20 @@ def navigate_avoiding_obstacles(depth_scale):
             #print(clear_path_direction)
          
                 print("obstacle ahead")
-               
-                # Example usage
-                # Example usage: Spin the rover for 5 seconds
-# Assuming 1000 is full reverse, 1500 is stop, and 2000 is full forward.
-                # spin_rover(5, 1000, 2000) 
+#                 current_heading = vehicle.heading
 
-        # Set the new yaw angle
-        #         set_yaw_angle(new_heading, relative=False)
+#         # Calculate new heading: turn left by 90 degrees
+#                 new_heading = (current_heading + 90) % 360
+#                 # Example usage
+#                 # Example usage: Spin the rover for 5 seconds
+# # Assuming 1000 is full reverse, 1500 is stop, and 2000 is full forward.
+#                 # spin_rover(5, 1000, 2000) 
 
-        # # Move with the specified NED velocity while turning
-        #         send_ned_yaw_pymavlink(0, 1, 0, new_heading, 5)
+#         # Set the new yaw angle
+#                 set_yaw_angle(new_heading, relative=False)
+
+#         # Move with the specified NED velocity while turning
+#                 send_ned_yaw_pymavlink(0, 1, 0, new_heading, 5)
             # send_ned_velocity(1,0,0,5)
             else:
                 print("no obstacle ahead")
@@ -275,14 +278,10 @@ try:
     depth_scale = depth_sensor.get_depth_scale()
     print("Depth Scale is: ", depth_scale)
     vehicle.armed = True
-    current_heading = vehicle.heading
-
-        # Calculate new heading: turn left by 90 degrees
-    new_heading = (current_heading + 90) % 360
-    set_yaw_angle(new_heading, relative=False)
+    # set_yaw_angle(90, relative=False)
 
         # Move with the specified NED velocity while turning
-    send_ned_yaw_pymavlink(0, 1, 0, new_heading, 5)
+    send_ned_yaw_pymavlink(0, 1, 0, 90, 5)
     while True:
         navigate_avoiding_obstacles(depth_scale)
         time.sleep(1)
