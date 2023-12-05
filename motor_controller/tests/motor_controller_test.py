@@ -7,6 +7,7 @@ import pytest
 import struct
 from unittest.mock import Mock, patch, call
 
+
 with patch.dict(
     "sys.modules",
     machine=Mock(),
@@ -16,6 +17,7 @@ with patch.dict(
 ):
     from motor_controller.motor_controller import MotorController
     import motor_controller.motor_controller as motor_controller_module
+    from protocol import Commands
 
 
 @pytest.fixture
@@ -60,20 +62,30 @@ def test_drive(motor_controller):
 
 
 @pytest.mark.parametrize(
-    "command",
+    "command_type, command_payload",
     [
-        (MotorController.ENABLE_COMMAND),
-        (MotorController.DISABLE_COMMAND),
-        ((10, 0, -50)),
-        ((80, -20)),
+        (Commands.ENABLE, None),
+        (Commands.DISABLE, None),
+        (Commands.SET_SPEED_MIXED, (10, -50)),
+        (Commands.SET_SPEED_LEFT_RIGHT, (80, -20)),
+        (None, Commands.ACK_COMMAND),
         # Invalid commands
-        (b""),  # Empty
-        (b"\x80\x24"),  # Single int (invalid)
-        (b"\x80\x24\x21\x80\x24\x21\x22\x23\x24\x25\x26\x27\x28\x29\x30"),  # Too long
+        (None, b""),  # Empty
+        (None, b"\x80\x24"),  # Single int (invalid)
+        (
+            None,
+            b"\x80\x24\x21\x80\x24\x21\x22\x23\x24\x25\x26\x27\x28\x29\x30",
+        ),  # Too long
     ],
 )
-def test_parse_command(motor_controller: MotorController, command):
-    """Test the parse_command method"""
+@pytest.mark.parametrize("initial_enabled", [True, False])
+def test_execute_command(
+    motor_controller: MotorController,
+    command_type,
+    command_payload,
+    initial_enabled,
+):
+    """Test the execute_command method"""
 
     # We are not testing these components here
     motor_controller.drive = Mock()
@@ -81,41 +93,52 @@ def test_parse_command(motor_controller: MotorController, command):
     motor_controller.pid_right = Mock()
     motor_controller.pid_update = Mock()
     motor_controller.rpm_to_setpoint = Mock()
+    motor_controller.ENABLED = initial_enabled
 
     byte_command = (
-        # b"".join([to_short_bytes(x) for x in command])
-        struct.pack("f" * len(command), *command)
-        if isinstance(command, tuple)
-        else command
+        Commands.generate_command((command_type, command_payload))
+        if command_type is not None
+        else command_payload
     )
-    valid = motor_controller.parse_command(byte_command)
+    valid = motor_controller.execute_command(byte_command)
 
-    match command:
-        case MotorController.ENABLE_COMMAND:
+    match initial_enabled, command_type, command_payload:
+        case False, Commands.ENABLE, _:
             motor_controller.central_hub_interface.write.assert_called_once_with(
-                MotorController.ENABLE_COMMAND
+                Commands.ACK_COMMAND
             )
             assert motor_controller.central_hub_interface.write.call_count == 1
             assert motor_controller.drive.call_count == 0
             assert motor_controller.ENABLED == True
             assert valid == True
-        case MotorController.DISABLE_COMMAND:
+        case False, _, _:
+            motor_controller.central_hub_interface.write.assert_not_called()
+            assert motor_controller.drive.call_count == 0
+            assert motor_controller.ENABLED == False
+
+        case True, Commands.ENABLE, _:
             motor_controller.central_hub_interface.write.assert_called_once_with(
-                MotorController.DISABLE_COMMAND
+                Commands.ACK_COMMAND
+            )
+            assert motor_controller.central_hub_interface.write.call_count == 1
+            assert motor_controller.drive.call_count == 0
+            assert motor_controller.ENABLED == True
+            assert valid == True
+        case True, Commands.DISABLE, _:
+            motor_controller.central_hub_interface.write.assert_called_once_with(
+                Commands.ACK_COMMAND
             )
             assert motor_controller.central_hub_interface.write.call_count == 1
             assert motor_controller.drive.call_count == 0
             assert motor_controller.ENABLED == False
             assert valid == True
-        case (left_speed, right_speed):
+        case True, Commands.SET_SPEED_LEFT_RIGHT, (left_speed, right_speed):
             motor_controller.drive.assert_called_once_with(left_speed, right_speed)
             assert motor_controller.drive.call_count == 1
             assert motor_controller.central_hub_interface.write.call_count == 0
             assert valid == True
-        case (left_speed, right_speed, turn):
-            motor_controller.drive.assert_called_once_with(
-                left_speed, right_speed, turn
-            )
+        case True, Commands.SET_SPEED_MIXED, (speed_command, turn):
+            motor_controller.drive.assert_called_once_with(speed_command, 0, turn)
             assert motor_controller.drive.call_count == 1
             assert motor_controller.central_hub_interface.write.call_count == 0
             assert valid == True

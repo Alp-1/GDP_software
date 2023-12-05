@@ -58,6 +58,15 @@ class RCReceiver:
             self.rc_interface = rc_interface
         self.rc_range = self.rc_interface.max_value - self.rc_interface.min_value
 
+        self.rc_timeout_ms = 1000
+
+    def is_active(self) -> bool:
+        """Check if the RC receiver is active"""
+        if self.rc_interface.time_since_last_packet() < self.rc_timeout_ms:
+            return True
+        else:
+            return False
+
     def channel_data(self, channel: int) -> int:
         """Get the data from the channel"""
         if self._channels_type[channel] == self.ANALOGUE:
