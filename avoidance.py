@@ -200,7 +200,7 @@ def navigate_avoiding_obstacles(depth_scale):
         vehicle.mode = VehicleMode("GUIDED")
         clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         send_ned_yaw_pymavlink_once(0,0,0,clear_path_direction)
-        send_ned_pymavlink()
+        send_ned_pymavlink(-1,0,0)
 
 # Main execution loop
 try:
@@ -209,14 +209,8 @@ try:
     depth_scale = depth_sensor.get_depth_scale()
     print("Depth Scale is: ", depth_scale)
     vehicle.armed = True
-    print(vehicle.mode)
-    send_ned_pymavlink(1,0,0)
-    send_ned_pymavlink(1,0,0)
-    send_ned_pymavlink(1,0,0)
-    send_ned_yaw_pymavlink_once(0,0,0,45)
     while True:
-        #send_ned_pymavlink(1, 0, 0)
-        send_ned_yaw_pymavlink_once(0,0,0,45)
+        navigate_avoiding_obstacles(depth_scale)
         time.sleep(0.2)
 except KeyboardInterrupt:
     print("Script terminated by user")
