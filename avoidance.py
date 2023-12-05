@@ -1,10 +1,8 @@
-import math
-import time
-import numpy as np
-import cv2
-import pyrealsense2 as rs
 import json
-from pymavlink import mavutil
+
+import cv2
+import numpy as np
+import pyrealsense2 as rs
 # from dronekit import connect, VehicleMode, LocationGlobalRelative
 from dronekit import *
 
@@ -206,9 +204,10 @@ try:
     print("Depth Scale is: ", depth_scale)
     vehicle.armed = True
     while True:
-	print("looking for path")
+        print("looking for path")
         navigate_avoiding_obstacles(depth_scale)
         time.sleep(1)
+
 except KeyboardInterrupt:
     print("Script terminated by user")
 
