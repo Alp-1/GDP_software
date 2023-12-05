@@ -194,9 +194,15 @@ def navigate_avoiding_obstacles(depth_scale):
         vehicle.mode = VehicleMode("GUIDED")
         clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         send_ned_yaw_pymavlink_once(0,0,0,clear_path_direction)
-        mavlink_connection.wait_heartbeat()
+        print("turning")
+        #mavlink_connection.wait_heartbeat()
+        # while True:
+            # ack_msg = mavlink_connection.recv_match(type='COMMAND_ACK',blocking=False)
+            # print(ack_msg)
+        time.sleep(5)
         send_ned_pymavlink(1,0,0)
-
+        print("going forward")
+        time.sleep(3)
 # Main execution loop
 try:
     pipeline, profile = initialize_realsense()
