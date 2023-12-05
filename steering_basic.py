@@ -316,7 +316,7 @@ try:
     print("Depth Scale is: ", depth_scale)
     vehicle.armed = True
     # turn_rover(90, relative=True)
-
+    print(vehicle.mode)
 # After turning, stop any further movement
 #     send_ned_yaw_pymavlink(0, 0, 0, 0, 1)
     send_ned_yaw_pymavlink_once(0,0,0,45)
