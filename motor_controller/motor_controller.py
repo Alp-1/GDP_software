@@ -27,11 +27,6 @@ SABERTOOTH_TX_PIN = 0
 SABERTOOTH_RX_PIN = 1  # Irrelevant
 
 
-# A flag to test the control loop without the current sensor
-# Remove this flag for normal operation
-CURRENT_SENSOR_ABSENT = False
-
-
 class MotorController:
     """Controls the motor speed using the signals coming from the central hub"""
 
@@ -180,12 +175,8 @@ class MotorController:
         If the current mode is individual, the pid output will be reduced
         """
         if self.current_mode == self.MIXED:
-            left_clipped_range = self.current_to_output_map(
-                self.left_motor.current
-            )
-            right_clipped_range = self.current_to_output_map(
-                self.right_motor.current
-            )
+            left_clipped_range = self.current_to_output_map(self.left_motor.current)
+            right_clipped_range = self.current_to_output_map(self.right_motor.current)
             self.mixed_clipped_range = (
                 max(left_clipped_range[0], right_clipped_range[0]),
                 min(left_clipped_range[1], right_clipped_range[1]),
@@ -280,10 +271,6 @@ class MotorController:
                         self.left_speed_command, self.right_speed_command
                     )
                 )
-                # self.pid_left.setpoint = self.setpoint_to_rpm(self.left_speed_command)
-                # self.pid_right.setpoint = self.setpoint_to_rpm(self.right_speed_command)
-                # self.pid_left.reset()
-                # self.pid_right.reset()
                 self.pid_update()
                 self.drive(self.left_speed_command, self.right_speed_command)
                 self.detect_mode_change()
@@ -342,8 +329,7 @@ class MotorController:
 
         while True:  # Can be changed to use async to allow other tasks to run
             # The command will latch until a new command is received
-            if not CURRENT_SENSOR_ABSENT:
-                self.overcurrent_protection()
+            self.overcurrent_protection()
             if (
                 time.ticks_diff(time.ticks_ms(), prev_sensor_time)
                 > self.SENSOR_UPDATE_PERIOD_MS
@@ -355,9 +341,9 @@ class MotorController:
                 command = self.central_hub_interface.read()
                 self.execute_command(command)
 
-            if self.turn is not None:
+            if self.current_mode == self.MIXED:
                 self.drive(self.left_speed_command, 0, self.turn)
-            else:
+            elif self.current_mode == self.INDEPENDENT_MOTOR:
                 # Run the PID control loop until a new command is received
                 self.pid_update()
 
@@ -390,8 +376,6 @@ class MotorController:
         self.pid_left.reset()
         self.pid_right.reset()
         last_time = time.ticks_ms()
-        # self.pid_left.setpoint = self.set_pid_setpoint(left_target_speed, self.PID_DEADZONE)
-        # self.pid_right.setpoint = self.set_pid_setpoint(right_target_speed, self.PID_DEADZONE)
         self.set_pid_setpoint(self.pid_left, left_target_speed)
         self.set_pid_setpoint(self.pid_right, right_target_speed)
         iteration = 0
