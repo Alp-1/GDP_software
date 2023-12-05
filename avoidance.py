@@ -154,11 +154,7 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
         yaw_angle = angle
     else:
         yaw_angle = angle + 360
-
-    # if angle>=0:
-    # yaw_angle = angle
-    # else:
-    # yaw_angle = 360 + angle
+    print(yaw_angle)
     return yaw_angle
 
 
@@ -200,7 +196,7 @@ def navigate_avoiding_obstacles(depth_scale):
         vehicle.mode = VehicleMode("GUIDED")
         clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         send_ned_yaw_pymavlink_once(0,0,0,clear_path_direction)
-        send_ned_pymavlink(-1,0,0)
+        #send_ned_pymavlink(1,0,0)
 
 # Main execution loop
 try:
@@ -210,8 +206,9 @@ try:
     print("Depth Scale is: ", depth_scale)
     vehicle.armed = True
     while True:
+	print("looking for path")
         navigate_avoiding_obstacles(depth_scale)
-        time.sleep(0.2)
+        time.sleep(1)
 except KeyboardInterrupt:
     print("Script terminated by user")
 
