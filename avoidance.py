@@ -211,6 +211,9 @@ try:
     vehicle.armed = True
     print(vehicle.mode)
     send_ned_pymavlink(1,0,0)
+    send_ned_pymavlink(1,0,0)
+    send_ned_pymavlink(1,0,0)
+    send_ned_yaw_pymavlink_once(0,0,0,45)
     # while True:
     #     navigate_avoiding_obstacles(depth_scale)
     #     time.sleep(0.2)
