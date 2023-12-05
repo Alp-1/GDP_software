@@ -102,6 +102,8 @@ class CentralHub:
         self.current_mode = self.DIRECT_RC  # Default
         self.update_mode()
         self.state = self.PAUSED  # The initial state is paused
+        self._prev_state = self.PAUSED
+        self.armed = False
 
         self.controller_ack = {"front": False, "rear": False}
 
@@ -140,14 +142,6 @@ class CentralHub:
         for controller in self.controllers.values():
             controller.write(self.STOP_COMMAND)
 
-    def fault_check(self):
-        """Stop the motor and set the current mode to FAULT if the emergency stop switch is triggered"""
-        if self.emergency_stop:
-            self.stop_motor()
-            return True
-        self.e_stop_pin.value(0)  # Release the emergency stop if it is not triggered
-        return False
-
     # fmt: off
     async def parse_command(self):
         """Parse the input bytes coming from the motor controller pico"""
@@ -166,6 +160,7 @@ class CentralHub:
         front_miss_count = 0
         rear_miss_count = 0
         while True:
+            self._prev_state = self.state
             self.state = self.state_selector
             if self.controllers["front"].any():
                 front_miss_count = 0
@@ -213,6 +208,10 @@ class CentralHub:
                 if rear_miss_count > self.SOFT_UART_RESET_COUNT:
                     self.controllers["rear"].reset_sm()
                     rear_miss_count = 0
+
+            if self.armed:
+                self.state_action()
+
             if (
                 front_left_encoder is not None
                 and front_right_encoder is not None
@@ -231,7 +230,7 @@ class CentralHub:
                 await mav_bridge.send_name_value_floats("c", rear_left_encoder)
                 await mav_bridge.send_name_value_floats("d", rear_right_encoder)
                 rear_left_encoder, rear_right_encoder = None, None
-            
+
             if (
                 front_left_current is not None
                 and front_right_current is not None
@@ -241,7 +240,7 @@ class CentralHub:
                 await mav_bridge.send_name_value_floats("e", front_left_current)
                 await mav_bridge.send_name_value_floats("f", front_right_current)
                 front_left_current, front_right_current = None, None
-            
+
             if (
                 rear_left_current is not None
                 and rear_right_current is not None
@@ -293,27 +292,25 @@ class CentralHub:
             self.controllers["front"].write(command_front)
             self.controllers["rear"].write(command_rear)
 
-    async def update_state(self):
-        """This method updates the state of the central hub."""
+    def state_action(self):
+        """Configure the user interface according to the state of the system"""
 
-        if self.fault_check():
-            if self.state != self.FAULT:
-                OnBoardLED.set_period_ms(100)
-            self.state = self.FAULT
-            return
-
-        if self.state == self.PAUSED and self.state_selector == self.RUNNING:
-            OnBoardLED.set_period_ms(1000)
-            self.configure_controllers(enable=True)
-            self.state = self.RUNNING
-        elif self.state == self.RUNNING and self.state_selector == self.PAUSED:
+        if self.state == self.PAUSED and self._prev_state != self.PAUSED:
             OnBoardLED.set_period_ms(500)
-            self.configure_controllers(enable=False)
-            self.state = self.PAUSED
+            # Release the emergency stop if it is not triggered
+            self.e_stop_pin.value(0)
+        elif self.state == self.RUNNING and self._prev_state != self.RUNNING:
+            OnBoardLED.set_period_ms(1000)
+            # Release the emergency stop if it is not triggered
+            self.e_stop_pin.value(0)
+        elif self.state == self.FAULT and self._prev_state != self.FAULT:
+            OnBoardLED.set_period_ms(100)
+            self.stop_motor()
 
     async def command_loop(self):
         """The main command loop. Call this method to update the speed command periodically."""
         last_time = time.ticks_ms()
+        # "Pre-arm" check
         while self.state_selector != self.PAUSED:
             await asyncio.sleep_ms(500)
             OnBoardLED.on()
@@ -321,8 +318,8 @@ class CentralHub:
             # in the disabled state when starting.
             pass
         OnBoardLED.set_period_ms(500)
+        self.armed = True
         while True:
-            await self.update_state()
             if (
                 self.state == self.RUNNING
                 and time.ticks_diff(time.ticks_ms(), last_time)
