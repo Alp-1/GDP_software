@@ -215,8 +215,9 @@ try:
     send_ned_pymavlink(1,0,0)
     send_ned_yaw_pymavlink_once(0,0,0,45)
     while True:
-        send_ned_pymavlink(1, 0, 0)
-        time.sleep(0.2)
+        #send_ned_pymavlink(1, 0, 0)
+    	send_ned_yaw_pymavlink_once(0,0,0,45)
+	time.sleep(0.2)
 except KeyboardInterrupt:
     print("Script terminated by user")
 
