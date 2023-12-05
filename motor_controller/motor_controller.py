@@ -39,16 +39,17 @@ class MotorController:
     OVERCURRENT_TIMEOUT_MS = 1000  # ms
     PID_PERIOD_MS = 200  # Encoder is 10ms + overhead
     MAIN_LOOP_PERIOD_MS = 1
-    SENSOR_UPDATE_PERIOD_MS = 2000  # Update the sensor every 2000ms
+    SENSOR_UPDATE_PERIOD_MS = 1000  # Update the sensor every 2000ms
 
     # Speed setpoint range
     MAX_SPEED_RPM = 165
     MIN_SPEED_RPM = -165
-    PID_RANGE = (MIN_SPEED_RPM // 2, MAX_SPEED_RPM // 2)
-    PID_DEADZONE = 5  # Prevent noise from causing the motor to oscillate
+    # The maximum range of the PID controller
+    MAX_PID_RANGE = (MIN_SPEED_RPM, MAX_SPEED_RPM)
+    PID_DEADZONE = 10  # Prevent noise from causing the motor to oscillate
 
     MIXED = 0
-    DIRECT_RC = 1
+    INDEPENDENT_MOTOR = 1
 
     def __init__(
         self,
@@ -122,7 +123,7 @@ class MotorController:
             Kd=0.005,
             setpoint=0,
             sample_time=self.PID_PERIOD_MS,
-            output_limits=self.PID_RANGE,
+            output_limits=self.MAX_PID_RANGE,
             time_fn=time.ticks_ms,
         )
         self.pid_right = PID(
@@ -131,7 +132,7 @@ class MotorController:
             Kd=0.005,
             setpoint=0,
             sample_time=self.PID_PERIOD_MS,
-            output_limits=self.PID_RANGE,
+            output_limits=self.MAX_PID_RANGE,
             time_fn=time.ticks_ms,
         )
 
@@ -195,7 +196,7 @@ class MotorController:
         if fault:
             if self.current_mode == self.MIXED:
                 OnBoardLED.set_period_ms(2000)
-            elif self.current_mode == self.DIRECT_RC:
+            elif self.current_mode == self.INDEPENDENT_MOTOR:
                 OnBoardLED.set_period_ms(1000)
 
     def send_currents(self):
@@ -243,7 +244,7 @@ class MotorController:
         else:
             valid = True
             command_type, command_value = parsed
-            print(command_type, command_value)
+            # print(command_type, command_value)
             if command_type == Commands.SET_SPEED_MIXED:
                 self.left_speed_command, self.turn = command_value
                 print("Left: {} Turn: {}".format(self.left_speed_command, self.turn))
@@ -298,7 +299,7 @@ class MotorController:
             self.current_mode = self.MIXED
             OnBoardLED.set_period_ms(2000)
         elif self._previous_turn is None and self.turn is not None:
-            self.current_mode = self.DIRECT_RC
+            self.current_mode = self.INDEPENDENT_MOTOR
             OnBoardLED.set_period_ms(1000)
         self._previous_turn = self.turn
 
@@ -343,15 +344,8 @@ class MotorController:
             if self.turn is not None:
                 self.drive(self.left_speed_command, 0, self.turn)
             else:
-                self.drive(self.left_speed_command, self.right_speed_command)
-                # if time.ticks_diff(time.ticks_ms(), self.pid_left._last_time) > self.PID_PERIOD_MS:
                 # Run the PID control loop until a new command is received
                 self.pid_update()
-            # else:
-            #     # Stop the motor if the motor is disabled
-            #     self.drive(0, 0)
-            #     self.pid_left.reset()
-            #     self.pid_right.reset()
 
             time.sleep_ms(self.MAIN_LOOP_PERIOD_MS)
 
@@ -367,16 +361,6 @@ class MotorController:
         # Clip the speed command to the maximum speed
         self.left_speed_command = self.rpm_to_setpoint(left_input_rpm)
         self.right_speed_command = self.rpm_to_setpoint(right_input_rpm)
-        print(
-            "Left: {} ({}) Right: {} ({})\nrpm: {}\nerrors: {}".format(
-                self.left_speed_command,
-                left_input_rpm,
-                self.right_speed_command,
-                right_input_rpm,
-                current_speed,
-                (self.pid_left._last_error, self.pid_right._last_error),
-            )
-        )
         self.drive(self.left_speed_command, self.right_speed_command)
 
     def pid_until_stable(
