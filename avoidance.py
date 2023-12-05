@@ -194,7 +194,8 @@ def navigate_avoiding_obstacles(depth_scale):
         vehicle.mode = VehicleMode("GUIDED")
         clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         send_ned_yaw_pymavlink_once(0,0,0,clear_path_direction)
-        #send_ned_pymavlink(1,0,0)
+        mavlink_connection.wait_heartbeat()
+        send_ned_pymavlink(1,0,0)
 
 # Main execution loop
 try:
