@@ -113,6 +113,7 @@ class MotorController:
         self.left_speed_command = 0
         self.right_speed_command = 0
         self.turn = 0
+        self.mixed_clipped_range = (-100, 100)
 
         self.current_mode = self.MIXED
         self._previous_turn = 0  # Attribute to detect mode change
@@ -153,51 +154,64 @@ class MotorController:
         """
 
         if turn is not None:
+            left_speed = self.convert(
+                left_speed,
+                -100,
+                100,
+                self.mixed_clipped_range[0],
+                self.mixed_clipped_range[1],
+            )
+            turn = self.convert(
+                turn,
+                -100,
+                100,
+                self.mixed_clipped_range[0],
+                self.mixed_clipped_range[1],
+            )
             self.motor_driver.drive_both(left_speed, turn)
         else:
             self.motor_driver.drive(LEFT_MOTOR_ID, left_speed)
             self.motor_driver.drive(RIGHT_MOTOR_ID, right_speed)
 
-    def is_overcurrent(self, motor_id: int):
-        """Check if the motor is overcurrent"""
-        if motor_id == LEFT_MOTOR_ID:
-            return abs(self.left_motor.current) > self.THRESHOLD_CURRENT
-        elif motor_id == RIGHT_MOTOR_ID:
-            return abs(self.right_motor.current) > self.THRESHOLD_CURRENT
+    def overcurrent_protection(self):
+        """Reacts to overcurrent depending on the mode.
 
-    def overcurrent_check(self):
-        """Stop the motors if overcurrent is detected. At the moment both motors will be stopped"""
-        fault = False
-        result_left = self.is_overcurrent(LEFT_MOTOR_ID)
-        result_right = self.is_overcurrent(RIGHT_MOTOR_ID)
-        while result_left or result_right:
-            if not fault:
-                start = time.ticks_ms()
-                while (
-                    time.ticks_diff(time.ticks_ms(), start)
-                    < self.OVERCURRENT_TIMEOUT_MS
-                ):
-                    result_left = self.is_overcurrent(LEFT_MOTOR_ID)
-                    result_right = self.is_overcurrent(RIGHT_MOTOR_ID)
-                    if (not result_left) and (not result_right):
-                        return
-                print("Overcurrent")
-                # Overcurrent over the timeout period
-                OnBoardLED.set_period_ms(100)
-                fault = True
-            else:
-                time.sleep_ms(self.OVERCURRENT_TIMEOUT_MS)
-                result_left = self.is_overcurrent(LEFT_MOTOR_ID)
-                result_right = self.is_overcurrent(RIGHT_MOTOR_ID)
+        If the current mode is mixed, the direct output will be clipped (both turn and speed)
+        If the current mode is individual, the pid output will be reduced
+        """
+        if self.current_mode == self.MIXED:
+            left_clipped_range = self.current_to_output_map(
+                self.left_motor.current
+            )
+            right_clipped_range = self.current_to_output_map(
+                self.right_motor.current
+            )
+            self.mixed_clipped_range = (
+                max(left_clipped_range[0], right_clipped_range[0]),
+                min(left_clipped_range[1], right_clipped_range[1]),
+            )
+        elif self.current_mode == self.INDEPENDENT_MOTOR:
+            self.pid_left.output_limits = self.current_to_output_map(
+                self.left_motor.current, max_range=self.MAX_PID_RANGE
+            )
+            self.pid_right.output_limits = self.current_to_output_map(
+                self.right_motor.current, max_range=self.MAX_PID_RANGE
+            )
 
-            self.drive(0, 0)
-            self.central_hub_interface.write(Commands.OVERCURRENT_COMMAND)
+    def current_to_output_map(self, current, max_range=(-100, 100)):
+        """Return the clipped output range of the controller"""
+        # No output cap for current less than 20% of the threshold (3A for 15A threshold)
+        if abs(current) < 0.2 * self.THRESHOLD_CURRENT:
+            return max_range
+        clipped_range = (self.THRESHOLD_CURRENT - abs(current)) / self.THRESHOLD_CURRENT
+        clipped_range = max(clipped_range, 0)  # Prevent negative values
+        clipped_range = clipped_range
+        return (-clipped_range / 2, clipped_range / 2)  # Assume the output is symmetric
 
-        if fault:
-            if self.current_mode == self.MIXED:
-                OnBoardLED.set_period_ms(2000)
-            elif self.current_mode == self.INDEPENDENT_MOTOR:
-                OnBoardLED.set_period_ms(1000)
+    @staticmethod
+    def convert(x, in_min, in_max, out_min, out_max):
+        # Will return a float
+        return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
     def send_currents(self):
         """Send the current values to the central hub"""
@@ -329,7 +343,7 @@ class MotorController:
         while True:  # Can be changed to use async to allow other tasks to run
             # The command will latch until a new command is received
             if not CURRENT_SENSOR_ABSENT:
-                self.overcurrent_check()
+                self.overcurrent_protection()
             if (
                 time.ticks_diff(time.ticks_ms(), prev_sensor_time)
                 > self.SENSOR_UPDATE_PERIOD_MS
