@@ -9,45 +9,48 @@ class PpmReader:
         self.max_value=max_value
         self.packet_gap=packet_gap
         self.pin = machine.Pin(pin_id, machine.Pin.IN)
-        self.pin.irq(trigger=machine.Pin.IRQ_RISING,handler=self._irq_handler,hard=True)
-        
-        self.timer=time.ticks_us()
-        self.last_valid_time=0
-        self.valid_packets=0
-        self.invalid_packets=0
-        self.last_packet_length=0
-        self.current_packet=[]
-        self.current_channel=0
-        self.last_valid_packet=[]
-        
+
+        self.timer = time.ticks_us()
+        self.last_valid_time = 0
+        self.valid_packets = 0
+        self.invalid_packets = 0
+        self.last_packet_length = 0
+        self.current_packet = []
+        self.current_channel = 0
+        self.last_valid_packet = []
+
         for i in range(self.channels):
             self.current_packet.append(0)
             self.last_valid_packet.append(0)
-        
-    def _irq_handler(self,_p):
+
+        self.pin.irq(
+            trigger=machine.Pin.IRQ_RISING, handler=self._irq_handler, hard=True
+        )
+
+    def _irq_handler(self, _p):
         now = time.ticks_us()
-        delta = time.ticks_diff(now,self.timer)
+        delta = time.ticks_diff(now, self.timer)
         self.timer = now
         if delta > self.packet_gap:
-            #end of a packet
-            self.last_packet_length=self.current_channel
-            #check packet length
+            # end of a packet
+            self.last_packet_length = self.current_channel
+            # check packet length
             if self.last_packet_length == self.channels:
-                #packet is good
-                self.valid_packets+=1
-                self.last_valid_packet=self.current_packet
-                self.last_valid_time=now
+                # packet is good
+                self.valid_packets += 1
+                self.last_valid_packet = self.current_packet
+                self.last_valid_time = now
             else:
-                #something went wrong
-                self.invalid_packets+=1
-                
-            #start new packet
-            self.current_channel=0
+                # something went wrong
+                self.invalid_packets += 1
+
+            # start new packet
+            self.current_channel = 0
         else:
             if self.current_channel < self.channels:
-                #save time between pulses
-                self.current_packet[self.current_channel]=delta
-            self.current_channel+=1
+                # save time between pulses
+                self.current_packet[self.current_channel] = delta
+            self.current_channel += 1
 
     def time_since_last_packet(self):
         return time.ticks_diff(time.ticks_us(),self.last_valid_time)
