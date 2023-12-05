@@ -38,6 +38,10 @@ class CentralHub:
     OPERATION_MODE_SELECTOR = RCReceiver.CHANNEL_5
     MOTOR_STATE_SELECTOR = RCReceiver.CHANNEL_7
 
+    # Whether to reverse the channel input (Depends on the hardware wiring)
+    REVERSE_THROTTLE = False
+    REVERSE_RUDDER = True
+
     # Some common commands for the motor controller
     STOP_COMMAND = Commands.generate_command((Commands.SET_SPEED_LEFT_RIGHT, (0, 0)))
 
@@ -261,10 +265,12 @@ class CentralHub:
         self.update_mode()
 
         if self.current_mode == self.DIRECT_RC:
-            # Inverted as the throttle is negative when pushed forward
-            speed = -self.rc_receiver.channel_data(self.THROTTLE)
-            # Rudder is inverted as the hardware is wired in the opposite direction
-            turn = -self.rc_receiver.channel_data(self.RUDDER)
+            speed = self.rc_receiver.channel_data(self.THROTTLE) * (
+                -1 if self.REVERSE_THROTTLE else 1
+            )
+            turn = self.rc_receiver.channel_data(self.RUDDER) * (
+                -1 if self.REVERSE_RUDDER else 1
+            )
             print(self.current_mode, speed, turn)
             command = Commands.generate_command(
                 (Commands.SET_SPEED_MIXED, (speed, turn))
