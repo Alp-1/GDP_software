@@ -1,10 +1,8 @@
-import math
-import time
-import numpy as np
-import cv2
-import pyrealsense2 as rs
 import json
-from pymavlink import mavutil
+
+import cv2
+import numpy as np
+import pyrealsense2 as rs
 # from dronekit import connect, VehicleMode, LocationGlobalRelative
 from dronekit import *
 
@@ -155,11 +153,7 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
         yaw_angle = angle
     else:
         yaw_angle = angle + 360
-
-    # if angle>=0:
-    # yaw_angle = angle
-    # else:
-    # yaw_angle = 360 + angle
+    print(yaw_angle)
     return yaw_angle
 
 
@@ -202,8 +196,15 @@ def navigate_avoiding_obstacles(depth_scale):
         clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         print(clear_path_direction)
         send_ned_yaw_pymavlink_once(0,0,0,clear_path_direction)
-        send_ned_pymavlink(- 1,0,0)
-
+        print("turning")
+        #mavlink_connection.wait_heartbeat()
+        # while True:
+            # ack_msg = mavlink_connection.recv_match(type='COMMAND_ACK',blocking=False)
+            # print(ack_msg)
+        time.sleep(5)
+        send_ned_pymavlink(1,0,0)
+        print("going forward")
+        time.sleep(3)
 # Main execution loop
 try:
     pipeline, profile = initialize_realsense()
@@ -212,8 +213,10 @@ try:
     print("Depth Scale is: ", depth_scale)
     vehicle.armed = True
     while True:
+        print("looking for path")
         navigate_avoiding_obstacles(depth_scale)
-        time.sleep(0.2)
+        time.sleep(1)
+
 except KeyboardInterrupt:
     print("Script terminated by user")
 
