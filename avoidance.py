@@ -53,7 +53,7 @@ def send_ned_yaw_pymavlink_once(velocity_x, velocity_y, velocity_z, yaw):
         velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         math.radians(yaw), 0)  # yaw, yaw_rate
-
+    print("done")
 
 def send_ned_pymavlink(velocity_x, velocity_y, velocity_z):
     mavlink_connection.mav.set_position_target_local_ned_send(
@@ -66,6 +66,7 @@ def send_ned_pymavlink(velocity_x, velocity_y, velocity_z):
         velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         0, 0)  # yaw, yaw_rate
+    print("sexy")
 
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
@@ -199,8 +200,9 @@ def navigate_avoiding_obstacles(depth_scale):
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
         vehicle.mode = VehicleMode("GUIDED")
         clear_path_direction = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
+        print(clear_path_direction)
         send_ned_yaw_pymavlink_once(0,0,0,clear_path_direction)
-        send_ned_pymavlink(-1,0,0)
+        send_ned_pymavlink(- 1,0,0)
 
 # Main execution loop
 try:
