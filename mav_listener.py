@@ -71,9 +71,8 @@ def get_motor_current_data(mavlink_connection, timeout=5):
 
 def get_mav_mode(mavlink_connection):
     """Return the mode of the flight controller"""
-    mav_mode_msg = wait_for_msg(mavlink_connection, "MAV_MODE")
-    # print("Mode: ", mav_mode_msg.mode)
-    return mav_mode_msg.mode
+    heartbeat_msg = wait_for_msg(mavlink_connection, "HEARTBEAT")
+    return mavutil.mode_string_v10(heartbeat_msg)
 
 
 def initialise_mavlink(connection_string="/dev/serial0", baud=57600):
