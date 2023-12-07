@@ -41,6 +41,7 @@ class CentralHub:
     # Whether to reverse the channel input (Depends on the hardware wiring)
     REVERSE_THROTTLE = False
     REVERSE_RUDDER = True
+    REVERSE_SERVO = True  # Used in Indepedent mode
 
     # Some common commands for the motor controller
     STOP_COMMAND = Commands.generate_command((Commands.SET_SPEED_LEFT_RIGHT, (0, 0)))
@@ -250,6 +251,8 @@ class CentralHub:
             or self.current_mode == self.FULLY_AUTONOMOUS
         ):
             command = self.request_speed_from_flight_controller()
+            if self.REVERSE_SERVO:
+                command = [-x for x in command]
             command_front = Commands.generate_command(
                 (Commands.SET_SPEED_LEFT_RIGHT, (command[0], command[1]))
             )
