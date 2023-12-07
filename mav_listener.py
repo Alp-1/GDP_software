@@ -6,9 +6,11 @@ from pymavlink import mavutil
 import math
 
 
-def wait_for_msg(mavlink_connection, msg_name, timeout=5):
+def wait_for_msg(mavlink_connection, msg_name, timeout=5, condition=None):
     """Wait for a message to be received, so that we can access its data"""
-    mavlink_connection.recv_match(type=msg_name, blocking=True, timeout=timeout)
+    mavlink_connection.recv_match(
+        type=msg_name, blocking=True, timeout=timeout, condition=condition
+    )
     try:
         msg = mavlink_connection.messages[msg_name]
         return msg
@@ -34,26 +36,37 @@ def get_instantaneous_power(mavlink_connection):
     return voltage * current
 
 
-def get_encoder_data(mavlink_connection):
+def get_motor_encoder_data(mavlink_connection):
     """Return the encoder data as an array of [front left, front right, rear left, rear right]"""
-    named_value_float_msg = wait_for_msg(mavlink_connection, "NAMED_VALUE_FLOAT")
-    return [
+    named_value_float_msg = wait_for_msg(
+        mavlink_connection,
+        "NAMED_VALUE_FLOAT",
+        condition="NAMED_VALUE_FLOAT[a] and NAMED_VALUE_FLOAT[b] and NAMED_VALUE_FLOAT[c] and NAMED_VALUE_FLOAT[d]",
+    )
+
+    result = [
         named_value_float_msg["a"].value,
         named_value_float_msg["b"].value,
         named_value_float_msg["c"].value,
         named_value_float_msg["d"].value,
     ]
+    return result
 
 
-def get_current_data(mavlink_connection):
+def get_motor_current_data(mavlink_connection, timeout=5):
     """Return the current data as an array of [front left, front right, rear left, rear right]"""
-    named_value_float_msg = wait_for_msg(mavlink_connection, "NAMED_VALUE_FLOAT")
-    return [
+    named_value_float_msg = wait_for_msg(
+        mavlink_connection,
+        "NAMED_VALUE_FLOAT",
+        condition="NAMED_VALUE_FLOAT[e] and NAMED_VALUE_FLOAT[f] and NAMED_VALUE_FLOAT[g] and NAMED_VALUE_FLOAT[h]",
+    )
+    result = [
         named_value_float_msg["e"].value,
         named_value_float_msg["f"].value,
         named_value_float_msg["g"].value,
         named_value_float_msg["h"].value,
     ]
+    return result
 
 
 def get_mav_mode(mavlink_connection):
@@ -77,10 +90,10 @@ def initialise_mavlink(connection_string="/dev/serial0", baud=57600):
 if __name__ == "__main__":
     mavlink_connection = initialise_mavlink()
     while True:
+        time.sleep(2)
         print("Speed: ", get_rover_speed(mavlink_connection))
         print("Power: ", get_instantaneous_power(mavlink_connection))
-        print("Encoders: ", get_encoder_data(mavlink_connection))
-        print("Currents: ", get_current_data(mavlink_connection))
+        print("Encoders: ", get_motor_encoder_data(mavlink_connection))
+        print("Currents: ", get_motor_current_data(mavlink_connection))
         print("Mode: ", get_mav_mode(mavlink_connection))
         print(" ")
-        time.sleep(2)
