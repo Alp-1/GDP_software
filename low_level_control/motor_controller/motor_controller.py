@@ -196,7 +196,7 @@ class MotorController:
             return max_range
         clipped_range = (self.THRESHOLD_CURRENT - abs(current)) / self.THRESHOLD_CURRENT
         clipped_range = max(clipped_range, 0)  # Prevent negative values
-        clipped_range = clipped_range
+        clipped_range = clipped_range * (max_range[1] - max_range[0])
         return (-clipped_range / 2, clipped_range / 2)  # Assume the output is symmetric
 
     @staticmethod
