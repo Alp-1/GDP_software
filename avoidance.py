@@ -64,6 +64,7 @@ def send_ned_pymavlink(velocity_x, velocity_y, velocity_z):
         velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         0, 0)  # yaw, yaw_rate
+    print("sexy")
 
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
@@ -196,9 +197,8 @@ def navigate_avoiding_obstacles(depth_scale):
         vehicle.mode = VehicleMode("GUIDED")
         angle = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         print(angle)
-        print("turning")
-        #send_ned_yaw_pymavlink_once(0,0,0,clear_path_direction)
         send_ned_yaw_pymavlink_once(0,0,0,angle)
+        print("turning")
         #mavlink_connection.wait_heartbeat()
         # while True:
             # ack_msg = mavlink_connection.recv_match(type='COMMAND_ACK',blocking=False)
