@@ -51,6 +51,7 @@ class CentralHub:
     SABERTOOTH_ESTOP_PIN = 22  # Connect to S2 pin of Sabertooth
 
     # The number of missing messages before resetting the state machine
+    #  (This is to prevent the SoftUART state machine from getting stuck)
     SOFT_UART_RESET_COUNT = 50
 
     def __init__(
@@ -100,12 +101,8 @@ class CentralHub:
         )
 
         self.current_mode = self.DIRECT_RC  # Default
-        self.update_mode()
         self.state = self.PAUSED  # The initial state is paused
-        self._prev_state = self.PAUSED
         self.armed = False
-
-        self.controller_ack = {"front": False, "rear": False}
 
     def update_mode(self):
         """Detect the mode from the switch position of mode selector switch"""
@@ -130,11 +127,6 @@ class CentralHub:
         """Return the state selector switch info"""
         return self.rc_receiver.channel_data(self.MOTOR_STATE_SELECTOR)
 
-    @property
-    def emergency_stop(self):
-        """Return if the emergency stop switch is triggered"""
-        return self.state_selector == self.FAULT
-
     def stop_motor(self):
         """Stop the motor by both setting the speed to 0 and pull down the S2 pin"""
         print("Motor stopped")
@@ -142,26 +134,55 @@ class CentralHub:
         for controller in self.controllers.values():
             controller.write(self.STOP_COMMAND)
 
-    # fmt: off
-    async def parse_command(self):
+    async def command_action(self, position, command_type, command_payload):
+        """Execute the command from the RC receiver
+
+        Parameters
+        ----------
+        position : str
+            The position of the controller. Either "front" or "rear"
+        command_type : int
+            The command type
+        command_payload : Any
+            The command payload
+        """
+        if position == "front":
+            left_encoder_name = "a"
+            right_encoder_name = "b"
+            left_current_name = "e"
+            right_current_name = "f"
+        elif position == "rear":
+            left_encoder_name = "c"
+            right_encoder_name = "d"
+            left_current_name = "g"
+            right_current_name = "h"
+        else:
+            raise Exception("Invalid position for the controller")
+        # fmt: off
+        if command_type == Commands.RESP_ENCODERS:
+            await mav_bridge.send_name_value_floats(left_encoder_name, command_payload[0])
+            await mav_bridge.send_name_value_floats(right_encoder_name, command_payload[1])
+            await mav_bridge.send_name_value_floats(left_encoder_name, command_payload[0])
+            await mav_bridge.send_name_value_floats(right_encoder_name, command_payload[1])
+        elif command_type == Commands.RESP_CURRENTS:
+            await mav_bridge.send_name_value_floats(left_current_name, command_payload[0])
+            await mav_bridge.send_name_value_floats(right_current_name, command_payload[1])
+            await mav_bridge.send_name_value_floats(left_current_name, command_payload[0])
+            await mav_bridge.send_name_value_floats(right_current_name, command_payload[1])
+        # fmt: on
+        elif command_type == Commands.OVERCURRENT:
+            self.state = self.FAULT
+            self.stop_motor()
+        else:
+            print("Unwanted command type", command_type)
+            return False
+        return True
+
+    async def parse_controllers_input(self):
         """Parse the input bytes coming from the motor controller pico"""
-        (
-            front_left_encoder,
-            front_right_encoder,
-            rear_left_encoder,
-            rear_right_encoder,
-        ) = (None, None, None, None)
-        (
-            front_left_current,
-            front_right_current,
-            rear_left_current,
-            rear_right_current,
-        ) = (None, None, None, None)
         front_miss_count = 0
         rear_miss_count = 0
         while True:
-            self._prev_state = self.state
-            self.state = self.state_selector
             if self.controllers["front"].any():
                 front_miss_count = 0
                 received = self.controllers["front"].read()
@@ -169,17 +190,7 @@ class CentralHub:
                 if parsed is not None:
                     print("front_parsed", parsed)
                     command_type, response = parsed
-                    if command_type == Commands.RESP_ENCODERS:
-                        front_left_encoder, front_right_encoder = response
-                    elif command_type == Commands.RESP_CURRENTS:
-                        front_left_current, front_right_current = response
-                    elif command_type == Commands.ACK:
-                        self.controller_ack["front"] = True
-                    elif command_type == Commands.OVERCURRENT:
-                        self.state = self.FAULT
-                        self.stop_motor()
-                    else:
-                        print("Unwanted command type", command_type)
+                    self.command_action("front", command_type, response)
             else:
                 front_miss_count += 1
                 if front_miss_count > self.SOFT_UART_RESET_COUNT:
@@ -192,76 +203,33 @@ class CentralHub:
                 if parsed is not None:
                     print("rear_parsed", parsed)
                     command_type, response = parsed
-                    if command_type == Commands.RESP_ENCODERS:
-                        rear_left_encoder, rear_right_encoder = response
-                    elif command_type == Commands.RESP_CURRENTS:
-                        rear_left_current, rear_right_current = response
-                    elif command_type == Commands.ACK:
-                        self.controller_ack["rear"] = True
-                    elif command_type == Commands.OVERCURRENT:
-                        self.state = self.FAULT
-                        self.stop_motor()
-                    else:
-                        print("Unwanted command type", command_type)
+                    self.command_action("rear", command_type, response)
             else:
                 rear_miss_count += 1
                 if rear_miss_count > self.SOFT_UART_RESET_COUNT:
                     self.controllers["rear"].reset_sm()
                     rear_miss_count = 0
 
-            if self.armed:
-                self.state_action()
-
-            if (
-                front_left_encoder is not None
-                and front_right_encoder is not None
-            ):
-                await mav_bridge.send_name_value_floats("a", front_left_encoder)
-                await mav_bridge.send_name_value_floats("b", front_right_encoder)
-                await mav_bridge.send_name_value_floats("a", front_left_encoder)
-                await mav_bridge.send_name_value_floats("b", front_right_encoder)
-                front_left_encoder, front_right_encoder = None, None
-            if (
-                rear_left_encoder is not None
-                and rear_right_encoder is not None
-            ):
-                await mav_bridge.send_name_value_floats("c", rear_left_encoder)
-                await mav_bridge.send_name_value_floats("d", rear_right_encoder)
-                await mav_bridge.send_name_value_floats("c", rear_left_encoder)
-                await mav_bridge.send_name_value_floats("d", rear_right_encoder)
-                rear_left_encoder, rear_right_encoder = None, None
-
-            if (
-                front_left_current is not None
-                and front_right_current is not None
-            ):
-                await mav_bridge.send_name_value_floats("e", front_left_current)
-                await mav_bridge.send_name_value_floats("f", front_right_current)
-                await mav_bridge.send_name_value_floats("e", front_left_current)
-                await mav_bridge.send_name_value_floats("f", front_right_current)
-                front_left_current, front_right_current = None, None
-
-            if (
-                rear_left_current is not None
-                and rear_right_current is not None
-            ):
-                await mav_bridge.send_name_value_floats("g", rear_left_current)
-                await mav_bridge.send_name_value_floats("h", rear_right_current)
-                await mav_bridge.send_name_value_floats("g", rear_left_current)
-                await mav_bridge.send_name_value_floats("h", rear_right_current)
-                rear_left_current, rear_right_current = None, None
             await asyncio.sleep_ms(10)
-    # fmt: on
 
-    def update_command(self):
-        """This method update checks the current mode and
-        updates speed command to the controllers.
+    async def update_state(self):
+        """Constantly checking the state of the system on the state selector switch"""
+        while True:
+            # Only update the state if the state selector switch is changed
+            if self.state != self.state_selector:
+                self.state = self.state_selector
+                if self.armed:
+                    self.state_action()
+            await asyncio.sleep_ms(self.E_STOP_CHECK_PERIOD_MS)
+
+    def send_command(self):
+        """This method reads from the receiver and sends the
+        speed command to the controllers depending on the mode.
         Call this method in a loop to update the speed command periodically.
         """
         if self.state == self.FAULT:
             # Should not update command if the state is FAULT
             return
-        self.update_mode()
 
         if self.current_mode == self.DIRECT_RC:
             speed = self.rc_receiver.channel_data(self.THROTTLE) * (
@@ -295,41 +263,33 @@ class CentralHub:
     def state_action(self):
         """Configure the user interface according to the state of the system"""
 
-        if self.state == self.PAUSED and self._prev_state != self.PAUSED:
+        if self.state == self.PAUSED:
             OnBoardLED.set_period_ms(500)
             # Release the emergency stop if it is not triggered
             self.e_stop_pin.value(0)
-        elif self.state == self.RUNNING and self._prev_state != self.RUNNING:
+        elif self.state == self.RUNNING:
             OnBoardLED.set_period_ms(1000)
             # Release the emergency stop if it is not triggered
             self.e_stop_pin.value(0)
-        elif self.state == self.FAULT and self._prev_state != self.FAULT:
+        elif self.state == self.FAULT:
             OnBoardLED.set_period_ms(100)
             self.stop_motor()
 
     async def command_loop(self):
         """The main command loop. Call this method to update the speed command periodically."""
-        last_time = time.ticks_ms()
         # "Pre-arm" check
         while self.state_selector != self.PAUSED:
-            await asyncio.sleep_ms(500)
+            await asyncio.sleep_ms(self.COMMAND_LOOP_PERIOD_MS)
             OnBoardLED.on()
             # prevents unwanted movement when the switch is not
             # in the disabled state when starting.
-            pass
-        OnBoardLED.set_period_ms(500)
         self.armed = True
         while True:
-            if (
-                self.state == self.RUNNING
-                and time.ticks_diff(time.ticks_ms(), last_time)
-                > self.COMMAND_LOOP_PERIOD_MS
-            ):
-                last_time = time.ticks_ms()
-                self.update_command()
+            if self.state == self.RUNNING:
+                self.update_mode()
+                self.send_command()
 
-            # State machine is run more frequently than the update command
-            await asyncio.sleep_ms(self.E_STOP_CHECK_PERIOD_MS)
+            await asyncio.sleep_ms(self.COMMAND_LOOP_PERIOD_MS)
 
 
 async def main():
@@ -337,6 +297,7 @@ async def main():
     central_hub = CentralHub()
     asyncio.create_task(central_hub.command_loop())
     asyncio.create_task(mav_bridge.mavlink_main())
-    asyncio.create_task(central_hub.parse_command())
+    asyncio.create_task(central_hub.parse_controllers_input())
+    asyncio.create_task(central_hub.update_state())
     while True:
         await asyncio.sleep_ms(10)
