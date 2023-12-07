@@ -53,7 +53,6 @@ def send_ned_yaw_pymavlink_once(velocity_x, velocity_y, velocity_z, yaw):
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         math.radians(yaw), 0)  # yaw, yaw_rate
 
-
 def send_ned_pymavlink(velocity_x, velocity_y, velocity_z):
     mavlink_connection.mav.set_position_target_local_ned_send(
         0,  # time_boot_ms (not used)
@@ -184,7 +183,6 @@ def move_back(steps):
 
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(depth_scale):
-    
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
     if not depth_frame:
@@ -200,14 +198,14 @@ def navigate_avoiding_obstacles(depth_scale):
         print(angle)
         print("turning")
         #send_ned_yaw_pymavlink_once(0,0,0,clear_path_direction)
-        send_ned_yaw_pymavlink_once(0,0,0,45)
+        send_ned_yaw_pymavlink_once(0,0,0,angle)
         #mavlink_connection.wait_heartbeat()
         # while True:
             # ack_msg = mavlink_connection.recv_match(type='COMMAND_ACK',blocking=False)
             # print(ack_msg)
         time.sleep(2)
         print("going forward")
-        send_ned_pymavlink(0.5,0,0)
+        send_ned_pymavlink(0.2,0,0)
         time.sleep(1)
 # Main execution loop
 try:
@@ -218,12 +216,12 @@ try:
     vehicle.armed = True
     while True:
         #time.sleep(10)
-        send_ned_yaw_pymavlink_once(0,0,0,45)
-        time.sleep(1)
-        send_ned_yaw_pymavlink_once(0,0,0,315)
+        #send_ned_yaw_pymavlink_once(0,0,0,45)
+        #time.sleep(1)
+        #send_ned_yaw_pymavlink_once(0,0,0,315)
         print("looking for path")
-        #navigate_avoiding_obstacles(depth_scale)
-        time.sleep(3)
+        navigate_avoiding_obstacles(depth_scale)
+        time.sleep(1)
 
 except KeyboardInterrupt:
     print("Script terminated by user")
