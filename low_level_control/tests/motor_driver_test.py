@@ -47,12 +47,7 @@ def test_drive(motor_id, speed, sabertooth):
     """Test the drive method. The command are recalculated in order to cross-check the
     checksum calculation
     """
-    if abs(speed) > 100:
-        with pytest.raises(
-            Exception, match="Sabertooth, invalid speed {}".format(speed)
-        ):
-            sabertooth.drive(motor_id, speed)
-        return
+    
 
     # Check that the correct command was sent
     if motor_id == 1:
@@ -73,6 +68,9 @@ def test_drive(motor_id, speed, sabertooth):
         return
 
     sabertooth.drive(motor_id, speed)
+
+    if abs(speed) > 100:
+        speed = 100 if speed > 0 else -100
     value = abs(round(speed * 1.27))
     checksum = (128 + command + value) & 127
     sabertooth.saber.write.assert_called_once_with(
@@ -85,17 +83,7 @@ def test_drive(motor_id, speed, sabertooth):
 @pytest.mark.parametrize("turn", [-150, -100, -50, 0, 50, 100, 150])
 def test_drive_both(speed, turn, sabertooth):
     """Test the drive_both method"""
-    if abs(speed) > 100:
-        with pytest.raises(
-            Exception, match="Sabertooth, invalid speed {}".format(speed)
-        ):
-            sabertooth.drive_both(speed, turn)
-        return
-    if abs(turn) > 100:
-        with pytest.raises(Exception, match="Sabertooth, invalid turn {}".format(turn)):
-            sabertooth.drive_both(speed, turn)
-        return
-
+    
     # Check that the correct command was sent
     if speed < 0:
         drive_command = sabertooth.REVERSE_MIXED
@@ -108,6 +96,11 @@ def test_drive_both(speed, turn, sabertooth):
         turn_command = sabertooth.RIGHT_MIXED
 
     sabertooth.drive_both(speed, turn)
+    if abs(speed) > 100:
+        speed = 100 if speed > 0 else -100
+    if abs(turn) > 100:
+        turn = 100 if turn > 0 else -100
+
     drive_value = abs(round(speed * 1.27))
     turn_value = abs(round(turn * 1.27))
     drive_checksum = (128 + drive_command + drive_value) & 127

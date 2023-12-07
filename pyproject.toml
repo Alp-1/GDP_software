@@ -17,5 +17,8 @@ dev-vscode = ["micropython-rp2-pico-stubs==1.20.0.post3"]
 requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["motor_controller", "central_hub", "user_interface", "upy_mavlink"]
+[tool.setuptools.package-dir]
+central_hub = "low_level_control/central_hub"
+motor_controller = "low_level_control/motor_controller"
+user_interface = "low_level_control/user_interface"
+upy_mavlink = "low_level_control/upy_mavlink"
