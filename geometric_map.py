@@ -40,18 +40,14 @@ def fit_plane_to_point_cloud(point_cloud):
 
 
 def main():
-    # o3d.t.io.RealSenseSensor.list_devices()
-    pcd = o3d.io.read_point_cloud("pointcloud2.ply")
-    print(pcd)
-    downpcd = pcd.voxel_down_sample(voxel_size=0.01)
-    print(downpcd)
+    o3d.t.io.RealSenseSensor.list_devices()
     start_time = time.time()
     x = np.random.random((200000, 3))
     y = o3d.utility.Vector3dVector(x)
-
-    o3d.t.io.RealSenseSensor.list_devices()
-
-
+    depth_frame = capture_depth_image()
+    depth_image = np.asanyarray(depth_frame.get_data())
+    pcd = o3d.geometry.PointCloud.create_from_depth_image(depth_image,o3d.camera.PinholeCameraIntrinsic)
+    print(pcd)
 
     print("--- %s seconds ---" % (time.time() - start_time))
 if __name__ == "__main__":
