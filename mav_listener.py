@@ -53,7 +53,7 @@ def get_motor_encoder_data(mavlink_connection):
     return result
 
 
-def get_motor_current_data(mavlink_connection, timeout=5):
+def get_motor_current_data(mavlink_connection):
     """Return the current data as an array of [front left, front right, rear left, rear right]"""
     named_value_float_msg = wait_for_msg(
         mavlink_connection,
@@ -71,14 +71,15 @@ def get_motor_current_data(mavlink_connection, timeout=5):
 
 def get_mav_mode(mavlink_connection):
     """Return the mode of the flight controller"""
-    heartbeat_msg = wait_for_msg(mavlink_connection, "HEARTBEAT")
+    # MAV_TYPE.MAV_TYPE_GROUND_ROVER = 10
+    heartbeat_msg = wait_for_msg(mavlink_connection, "HEARTBEAT", condition="HEARTBEAT.type==10")
     return mavutil.mode_string_v10(heartbeat_msg)
 
 
 def initialise_mavlink(connection_string="/dev/serial0", baud=57600):
     """Initialise mavlink connection"""
     mavlink_connection = mavutil.mavlink_connection(connection_string, baud=baud)
-    mavlink_connection.wait_heartbeat()
+    wait_for_msg(mavlink_connection, "HEARTBEAT", condition="HEARTBEAT.type==10")
     print(
         "Heartbeat from MAVLink system (system %u component %u)"
         % (mavlink_connection.target_system, mavlink_connection.target_component)
@@ -89,7 +90,7 @@ def initialise_mavlink(connection_string="/dev/serial0", baud=57600):
 if __name__ == "__main__":
     mavlink_connection = initialise_mavlink()
     while True:
-        time.sleep(2)
+        time.sleep(0.5)
         print("Speed: ", get_rover_speed(mavlink_connection))
         print("Power: ", get_instantaneous_power(mavlink_connection))
         print("Encoders: ", get_motor_encoder_data(mavlink_connection))
