@@ -6,8 +6,13 @@ from pymavlink import mavutil
 import math
 
 
-def wait_for_msg(mavlink_connection, msg_name, timeout=5, condition=None):
+def wait_for_msg(mavlink_connection, msg_name, flush=True, timeout=5, condition=None):
     """Wait for a message to be received, so that we can access its data"""
+    if flush:
+        try:
+            mavlink_connection.port.flushInput()
+        except AttributeError:
+            pass
     mavlink_connection.recv_match(
         type=msg_name, blocking=True, timeout=timeout, condition=condition
     )
@@ -41,6 +46,7 @@ def get_motor_encoder_data(mavlink_connection):
     named_value_float_msg = wait_for_msg(
         mavlink_connection,
         "NAMED_VALUE_FLOAT",
+        flush=False,
         condition="NAMED_VALUE_FLOAT[a] and NAMED_VALUE_FLOAT[b] and NAMED_VALUE_FLOAT[c] and NAMED_VALUE_FLOAT[d]",
     )
 
@@ -58,6 +64,7 @@ def get_motor_current_data(mavlink_connection):
     named_value_float_msg = wait_for_msg(
         mavlink_connection,
         "NAMED_VALUE_FLOAT",
+        flush=False,
         condition="NAMED_VALUE_FLOAT[e] and NAMED_VALUE_FLOAT[f] and NAMED_VALUE_FLOAT[g] and NAMED_VALUE_FLOAT[h]",
     )
     result = [
@@ -72,7 +79,9 @@ def get_motor_current_data(mavlink_connection):
 def get_mav_mode(mavlink_connection):
     """Return the mode of the flight controller"""
     # MAV_TYPE.MAV_TYPE_GROUND_ROVER = 10
-    heartbeat_msg = wait_for_msg(mavlink_connection, "HEARTBEAT", condition="HEARTBEAT.type==10")
+    heartbeat_msg = wait_for_msg(
+        mavlink_connection, "HEARTBEAT", condition="HEARTBEAT.type==10"
+    )
     return mavutil.mode_string_v10(heartbeat_msg)
 
 
