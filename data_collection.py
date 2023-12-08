@@ -8,6 +8,7 @@ import time
 import json
 np.set_printoptions(threshold=sys.maxsize)
 # Create a 'data' directory if it doesn't exist
+#data_dir = '/media/gdp/SanDisk/new_data'
 data_dir = 'data'
 os.makedirs(data_dir, exist_ok=True)
 
@@ -21,14 +22,19 @@ config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 200)  # Accelerom
 config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 400)  # Gyroscope data
 profile = pipeline.start(config)
 
+sensor = profile.get_device().query_sensors()[1]
+sensor.set_option(rs.option.enable_auto_exposure, False)
+sensor.set_option(rs.option.exposure,78.0)
+sensor.set_option(rs.option.gain,85.0)
+
 jsonObj = json.load(open("camera_settings.json"))
 json_string= str(jsonObj).replace("'", '\"')
 dev = profile.get_device()
-advnc_mode = rs.rs400_advanced_mode(dev)
-advnc_mode.load_json(json_string)
+# advnc_mode = rs.rs400_advanced_mode(dev)
+# advnc_mode.load_json(json_string)
 
 # Set the save frequency
-save_interval = 0.2  # in seconds
+save_interval = 2  # in seconds
 last_save_time = 0
 # Getting the depth sensor's depth scale
 depth_sensor = profile.get_device().first_depth_sensor()
@@ -37,7 +43,8 @@ count = 0
 try:
     while True:
         time.sleep(3)
-
+        print(sensor.get_option(rs.option.exposure))
+        print(sensor.get_option(rs.option.gain))
         frames = pipeline.wait_for_frames()
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()

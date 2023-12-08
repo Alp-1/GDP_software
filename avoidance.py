@@ -119,8 +119,8 @@ def initialize_realsense():
     jsonObj = json.load(open("camera_settings.json"))
     json_string = str(jsonObj).replace("'", '\"')
     dev = profile.get_device()
-    advnc_mode = rs.rs400_advanced_mode(dev)
-    advnc_mode.load_json(json_string)
+    # advnc_mode = rs.rs400_advanced_mode(dev)
+    # advnc_mode.load_json(json_string)
     return pipeline, profile
 
 
@@ -205,7 +205,8 @@ def navigate_avoiding_obstacles(depth_scale):
             # print(ack_msg)
         time.sleep(2)
         print("going forward")
-        send_ned_pymavlink(0.2,0,0)
+        send_ned_pymavlink(0.2
+,0,0)
         time.sleep(1)
 # Main execution loop
 try:
@@ -221,7 +222,7 @@ try:
         #send_ned_yaw_pymavlink_once(0,0,0,315)
         print("looking for path")
         navigate_avoiding_obstacles(depth_scale)
-        time.sleep(1)
+        #time.sleep(1)
 
 except KeyboardInterrupt:
     print("Script terminated by user")
