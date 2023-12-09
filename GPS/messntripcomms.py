@@ -43,12 +43,30 @@ from time import sleep
 
 from pygnssutils import VERBOSITY_LOW, GNSSNTRIPClient
 from gnssapp import GNSSSkeletonApp
+import subprocess
+
+def find_gnss_port(device_name):
+    
+    ports = [ "/dev/ttyACM0", "/dev/ttyACM1"] #if more devices are connected add more ACM's to check 0-9
+    for port in ports:
+        try:
+            desc = subprocess.check_output(f"udevadm info -q property --name={port}", shell = True)
+            desc = desc.decode().strip()
+            if device_name in desc:
+                    return port
+        except subprocess.CalledProcessError:
+            continue
+    return None
+
 
 CONNECTED = 1
 
 if __name__ == "__main__":
     # GNSS receiver serial port parameters - AMEND AS REQUIRED:
-    SERIAL_PORT = "/dev/ttyACM0"
+    SERIAL_PORT = find_gnss_port("u-blox_GNSS_receiver")
+    if SERIAL_PORT is None:
+        print("GNSS reciever is not on")
+        exit(1)
     BAUDRATE = 57600
     TIMEOUT = 10
 
