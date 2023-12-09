@@ -48,24 +48,30 @@ def main():
     config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 200)  # Accelerometer data
     config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 400)  # Gyroscope data
     profile = pipeline.start(config)
-    
+    print(o3d.camera.PinholeCameraIntrinsicParameters.PrimeSenseDefault)
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
-    while True:
-        frames = pipeline.wait_for_frames()
-        depth_frame = frames.get_depth_frame()
-        intrinsics = profile.as_video_stream_profile().get_intrinsics()
-        print(intrinsics)
-        start_time = time.time()
-        x = np.random.random((200000, 3))
-        y = o3d.utility.Vector3dVector(x)
-        depth_image = np.asanyarray(depth_frame.get_data())
-        pcd = o3d.geometry.PointCloud.create_from_depth_image(
-            o3d.geometry.Image(depth_image),o3d.camera.PinholeCameraIntrinsic(o3d.camera.PinholeCameraIntrinsicParameters.PrimeSenseDefault
-            ))
-        print(pcd)
-        time.sleep(1)
-
+    
+    frames = pipeline.wait_for_frames()
+    depth_frame = frames.get_depth_frame()
+    start_time = time.time()
+    depth_image = np.asanyarray(depth_frame.get_data())
+    pcd = o3d.geometry.PointCloud.create_from_depth_image(
+        o3d.geometry.Image(depth_image),o3d.camera.PinholeCameraIntrinsic(o3d.camera.PinholeCameraIntrinsicParameters.PrimeSenseDefault
+        ))
+    print(pcd)
+    downpcd = pcd.voxel_down_sample(voxel_size=0.05)
+    plane_model, inliers = downpcd.segment_plane(distance_threshold=0.01,
+                                         ransac_n=3,
+                                         num_iterations=200)
+    # vis = o3d.visualization.Visualizer()
+    # vis.create_window(window_name='pointcloud', width=3000, height=2000)
+    # vis.add_geometry(pcd)
+    # vis.run()
+    # vis.destroy_window()
+    # pipeline.stop()
+    #o3d.visualization.draw_geometries([pcd])
+    
     print("--- %s seconds ---" % (time.time() - start_time))
 if __name__ == "__main__":
     main()
