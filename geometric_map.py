@@ -54,16 +54,15 @@ def main():
     while True:
         frames = pipeline.wait_for_frames()
         depth_frame = frames.get_depth_frame()
-
-        
+        intrinsics = profile.as_video_stream_profile().get_intrinsics()
+        print(intrinsics)
         start_time = time.time()
         x = np.random.random((200000, 3))
         y = o3d.utility.Vector3dVector(x)
         depth_image = np.asanyarray(depth_frame.get_data())
         pcd = o3d.geometry.PointCloud.create_from_depth_image(
             o3d.geometry.Image(depth_image),o3d.camera.PinholeCameraIntrinsic(o3d.camera.PinholeCameraIntrinsicParameters.PrimeSenseDefault
-            ),
-            depth_scale = depth_scale)
+            ))
         print(pcd)
         time.sleep(1)
 
