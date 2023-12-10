@@ -1,5 +1,3 @@
-import json
-
 import cv2
 import numpy as np
 import pyrealsense2 as rs
@@ -14,34 +12,12 @@ print("Heartbeat from MAVLink system (system %u component %u)" % (
 vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 
 obstacle_threshold = 2.0
+column_width = 20
 
-
-def send_ned_velocity(velocity_x, velocity_y, velocity_z, duration):
-    """
-    Move vehicle in direction based on specified velocity vectors.
-    """
-    msg = vehicle.message_factory.set_position_target_local_ned_encode(
-        0,  # time_boot_ms (not used)
-        0, 0,  # target system, target component
-        mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
-        0b0000111111000111,  # type_mask (only speeds enabled)
-        0, 0, 0,  # x, y, z positions (not used)
-        velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
-        0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
-        0, 0)  # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
-
-    # send command to vehicle on 1 Hz cycle
-    for x in range(0, duration):
-        vehicle.send_mavlink(msg)
-        time.sleep(1)
-
-
-
-def send_ned_yaw_pymavlink_once(velocity_x, velocity_y, velocity_z, yaw):
+def mavlink_turn(velocity_x, velocity_y, velocity_z, yaw):
     """
     Move vehicle in direction based on specified velocity vectors using pymavlink.
 """
-    print("turned")
     mavlink_connection.mav.set_position_target_local_ned_send(
         0,  # time_boot_ms (not used)
         mavlink_connection.target_system,  # target system
@@ -53,7 +29,7 @@ def send_ned_yaw_pymavlink_once(velocity_x, velocity_y, velocity_z, yaw):
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         math.radians(yaw), 0)  # yaw, yaw_rate
 
-def send_ned_pymavlink(velocity_x, velocity_y, velocity_z):
+def mavlink_velocity(velocity_x, velocity_y, velocity_z):
     mavlink_connection.mav.set_position_target_local_ned_send(
         0,  # time_boot_ms (not used)
         mavlink_connection.target_system,  # target system
@@ -65,6 +41,18 @@ def send_ned_pymavlink(velocity_x, velocity_y, velocity_z):
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         0, 0)  # yaw, yaw_rate
     print("sexy")
+
+def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
+    mavlink_connection.mav.set_position_target_local_ned_send(
+        0,  # time_boot_ms (not used)
+        mavlink_connection.target_system,  # target system
+        mavlink_connection.target_component,  # target component
+        mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
+        0b100111100111 ,  # type_mask (only speeds enabled)
+        0, 0, 0,  # x, y, z positions (not used)
+        velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
+        0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+        math.radians(yaw), 0)  # yaw, yaw_rate
 
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
@@ -116,11 +104,14 @@ def initialize_realsense():
     config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 400)  # Gyroscope data
     profile = pipeline.start(config)
 
-    jsonObj = json.load(open("camera_settings.json"))
-    json_string = str(jsonObj).replace("'", '\"')
-    dev = profile.get_device()
-    # advnc_mode = rs.rs400_advanced_mode(dev)
-    # advnc_mode.load_json(json_string)
+    sensor = profile.get_device().query_sensors()[1]
+    sensor.set_option(rs.option.enable_auto_exposure, False)
+    sensor.set_option(rs.option.exposure, 78.0)
+    sensor.set_option(rs.option.gain, 85.0)
+
+    depth_sensor = profile.get_device().query_sensors()[0]
+    threshold_filter = rs.threshold_filter()
+    threshold_filter.set_option(rs.option.max_distance, 10)
     return pipeline, profile
 
 
@@ -138,6 +129,17 @@ def obstacle_ahead(depth_image, depth_scale):
     else:
         return False
 
+def clearest_path(depth_image):
+    # Calculate the rolling mean for consecutive columns
+    rolling_means = np.convolve(depth_image.mean(axis=0), np.ones(column_width) / column_width, mode='valid')
+
+    # Find the starting index of the columns with the highest mean
+    start_index = np.argmax(rolling_means)
+
+    # Calculate the middle index of the selected columns
+    middle_index = start_index + column_width // 2
+
+    return middle_index
 
 # Function to find a clear path and calculate its direction
 def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width):
@@ -145,14 +147,11 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
     depth_image_meters = depth_image * depth_scale
 
     # Threshold for what we consider an obstacle (in meters)
-    column_means = np.mean(depth_image_meters, axis=0)
-    # Find the index of the column with the highest mean
-    index_of_highest_mean = np.argmax(column_means)
-    angle = index_of_highest_mean / len(column_means) * 87 - (87 / 2)
-    # if angle >= 0:
-        # yaw_angle = angle
-    # else:
-        # yaw_angle = angle + 360
+
+    # column_means = np.mean(depth_image_meters, axis=0)
+    # index_of_highest_mean = np.argmax(column_means)
+    index_of_highest_mean = clearest_path(depth_image_meters)
+    angle = index_of_highest_mean / len(depth_image.shape[1]) * 87 - (87 / 2)
     angle =(angle+360) % 360
     return angle
 
@@ -178,8 +177,8 @@ def move_back(steps):
     """
     Move the rover back by a certain number of steps.
     """
-    for _ in range(steps):
-        send_ned_velocity(-1, 0, 0, 1)
+    # for _ in range(steps):
+    #     send_ned_velocity(-1, 0, 0, 1)
 
 
 # Function to navigate while avoiding obstacles
@@ -190,14 +189,13 @@ def navigate_avoiding_obstacles(depth_scale):
         return
 
     depth_image = np.asanyarray(depth_frame.get_data())
-    angle = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
-    print(angle)
+    print(depth_image.shape[1])
     print(vehicle.mode.name)
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
         vehicle.mode = VehicleMode("GUIDED")
         angle = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         print(angle)
-        send_ned_yaw_pymavlink_once(0,0,0,angle)
+        mavlink_turn(0,0,0,angle)
         print("turning")
         #mavlink_connection.wait_heartbeat()
         # while True:
@@ -205,8 +203,9 @@ def navigate_avoiding_obstacles(depth_scale):
             # print(ack_msg)
         time.sleep(2)
         print("going forward")
-        send_ned_pymavlink(0.2
-,0,0)
+        mavlink_velocity(0.1,0,0)
+
+        mavlink_turn_and_go(0.1,0,0,angle)
         time.sleep(1)
 # Main execution loop
 try:
@@ -216,10 +215,6 @@ try:
     print("Depth Scale is: ", depth_scale)
     vehicle.armed = True
     while True:
-        #time.sleep(10)
-        #send_ned_yaw_pymavlink_once(0,0,0,45)
-        #time.sleep(1)
-        #send_ned_yaw_pymavlink_once(0,0,0,315)
         print("looking for path")
         navigate_avoiding_obstacles(depth_scale)
         #time.sleep(1)
