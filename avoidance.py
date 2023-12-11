@@ -51,7 +51,7 @@ def send_ned_yaw_pymavlink_once(velocity_x, velocity_y, velocity_z, yaw):
         velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         math.radians(yaw), 0)  # yaw, yaw_rate
-    print("done")
+    print(yaw)
 
 def send_ned_pymavlink(velocity_x, velocity_y, velocity_z):
     mavlink_connection.mav.set_position_target_local_ned_send(
@@ -64,8 +64,7 @@ def send_ned_pymavlink(velocity_x, velocity_y, velocity_z):
         velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         0, 0)  # yaw, yaw_rate
-    print("sexy")
-
+    
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
     print("Heartbeat received")
@@ -129,14 +128,16 @@ rover_width = 0.5  # Adjust to your rover's width
 
 
 def obstacle_ahead(depth_image, depth_scale):
+    """
+    Check if there is an obstacle ahead within a certain threshold.
+    """
     depth_image_meters = depth_image * depth_scale
-    # Calculate the mean of the middle column
-    middle_column_mean = np.mean(depth_image_meters[:, depth_image_meters.shape[1] // 2])
-    print(middle_column_mean)
-    if middle_column_mean < obstacle_threshold:
-        return True
-    else:
-        return False
+    # Calculate the mean depth in a central area of the image
+    central_area = depth_image_meters[:, depth_image_meters.shape[1] // 4 : 3 * depth_image_meters.shape[1] // 4]
+    central_mean = np.mean(central_area)
+    print("Central mean depth: ", central_mean)
+    return central_mean < obstacle_threshold
+
 
 
 # Function to find a clear path and calculate its direction
@@ -214,6 +215,14 @@ try:
     vehicle.armed = True
     while True:
         print("looking for path")
+        frames = pipeline.wait_for_frames()
+        depth_frame = frames.get_depth_frame()
+        depth_image = np.asanyarray(depth_frame.get_data())
+
+        # Check for obstacles
+        if obstacle_ahead(depth_image, depth_scale):
+            print("Obstacle detected! Taking evasive action.")
+            continue
         navigate_avoiding_obstacles(depth_scale)
         time.sleep(1)
 
