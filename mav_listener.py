@@ -1,59 +1,94 @@
-"""THE main loop for connection with flight controller"""
+"""The module with the functions to parse the mavlink messages"""
 
 
+import time
 from pymavlink import mavutil
-import asyncio
 import math
 
 
-# Global variables to store the encoder and current data
-encoders = [0, 0, 0, 0]  # Front left, front right, rear left, rear right
-currents = [0, 0, 0, 0]  # Front left, front right, rear left, rear right
+def wait_for_msg(mavlink_connection, msg_name, flush=True, timeout=5, condition=None):
+    """Wait for a message to be received, so that we can access its data"""
+    if flush:
+        try:
+            mavlink_connection.port.flushInput()
+        except AttributeError:
+            pass
+    mavlink_connection.recv_match(
+        type=msg_name, blocking=True, timeout=timeout, condition=condition
+    )
+    try:
+        msg = mavlink_connection.messages[msg_name]
+        return msg
+    except KeyError:
+        print("Message %s not found" % msg_name)
+        return None
 
 
-def handle_glob_pos_int(global_position_int_msg):
+def get_rover_speed(mavlink_connection):
     """Return the speed in cm/s"""
+    global_position_int_msg = wait_for_msg(mavlink_connection, "GLOBAL_POSITION_INT")
     speed = math.sqrt(global_position_int_msg.vx**2 + global_position_int_msg.vy**2)
     return speed
 
 
-def handle_sys_status(sys_status_msg):
+def get_instantaneous_power(mavlink_connection):
     """Return the voltage and current in volts and amps"""
+    sys_status_msg = wait_for_msg(mavlink_connection, "SYS_STATUS")
     voltage = sys_status_msg.voltage_battery / 1000
     current = sys_status_msg.current_battery / 100
-    return voltage, current
+    print("Voltage (V): ", voltage)
+    print("Current (A): ", current)
+    return voltage * current
 
 
-def handle_named_value_float(named_value_float_msg):
-    """Return the encoder and current data of each wheel from the pico"""
-    global encoders, currents
-    if named_value_float_msg.name == "a":
-        encoders[0] = named_value_float_msg.value
-    elif named_value_float_msg.name == "b":
-        encoders[1] = named_value_float_msg.value
-    elif named_value_float_msg.name == "c":
-        encoders[2] = named_value_float_msg.value
-    elif named_value_float_msg.name == "d":
-        encoders[3] = named_value_float_msg.value
-    elif named_value_float_msg.name == "e":
-        currents[0] = named_value_float_msg.value
-    elif named_value_float_msg.name == "f":
-        currents[1] = named_value_float_msg.value
-    elif named_value_float_msg.name == "g":
-        currents[2] = named_value_float_msg.value
-    elif named_value_float_msg.name == "h":
-        currents[3] = named_value_float_msg.value
+def get_motor_encoder_data(mavlink_connection):
+    """Return the encoder data as an array of [front left, front right, rear left, rear right]"""
+    named_value_float_msg = wait_for_msg(
+        mavlink_connection,
+        "NAMED_VALUE_FLOAT",
+        flush=False,
+        condition="NAMED_VALUE_FLOAT[a] and NAMED_VALUE_FLOAT[b] and NAMED_VALUE_FLOAT[c] and NAMED_VALUE_FLOAT[d]",
+    )
+
+    result = [
+        named_value_float_msg["a"].value,
+        named_value_float_msg["b"].value,
+        named_value_float_msg["c"].value,
+        named_value_float_msg["d"].value,
+    ]
+    return result
 
 
-def handle_mav_mode(mav_mode_msg):
+def get_motor_current_data(mavlink_connection):
+    """Return the current data as an array of [front left, front right, rear left, rear right]"""
+    named_value_float_msg = wait_for_msg(
+        mavlink_connection,
+        "NAMED_VALUE_FLOAT",
+        flush=False,
+        condition="NAMED_VALUE_FLOAT[e] and NAMED_VALUE_FLOAT[f] and NAMED_VALUE_FLOAT[g] and NAMED_VALUE_FLOAT[h]",
+    )
+    result = [
+        named_value_float_msg["e"].value,
+        named_value_float_msg["f"].value,
+        named_value_float_msg["g"].value,
+        named_value_float_msg["h"].value,
+    ]
+    return result
+
+
+def get_mav_mode(mavlink_connection):
     """Return the mode of the flight controller"""
-    print("Mode: ", mav_mode_msg.mode)
+    # MAV_TYPE.MAV_TYPE_GROUND_ROVER = 10
+    heartbeat_msg = wait_for_msg(
+        mavlink_connection, "HEARTBEAT", condition="HEARTBEAT.type==10"
+    )
+    return mavutil.mode_string_v10(heartbeat_msg)
 
 
-def intialise_mavlink(connection_string="/dev/serial0", baud=57600):
+def initialise_mavlink(connection_string="/dev/serial0", baud=57600):
     """Initialise mavlink connection"""
     mavlink_connection = mavutil.mavlink_connection(connection_string, baud=baud)
-    mavlink_connection.wait_heartbeat()
+    wait_for_msg(mavlink_connection, "HEARTBEAT", condition="HEARTBEAT.type==10")
     print(
         "Heartbeat from MAVLink system (system %u component %u)"
         % (mavlink_connection.target_system, mavlink_connection.target_component)
@@ -61,32 +96,13 @@ def intialise_mavlink(connection_string="/dev/serial0", baud=57600):
     return mavlink_connection
 
 
-async def listen_loop(mavlink_connection):
-    """Loop on mavlink connection and do action based on data."""
-
+if __name__ == "__main__":
+    mavlink_connection = initialise_mavlink()
     while True:
-        mav_msg = mavlink_connection.recv_match(blocking=False)
-        if mav_msg is None:
-            continue
-        if mav_msg.get_type() == "BAD_DATA":
-            print("Bad data")
-            continue
-        if mav_msg.get_type() == "GLOBAL_POSITION_INT":
-            vehicle_speed = handle_glob_pos_int(mav_msg)
-            print("Speed is: cm/s", vehicle_speed)
-        if mav_msg.get_type() == "SYS_STATUS":
-            batt_voltage, batt_current = handle_sys_status(mav_msg)
-            print("Battery voltage: V", batt_voltage)
-            print("Battery current: A", batt_current)
-
-        if mav_msg.get_type() == "NAMED_VALUE_FLOAT":
-            handle_named_value_float(mav_msg)
-            print("Encoders: ", encoders)
-            print("Currents: ", currents)
-
-        if mav_msg.get_type() == "MAV_MODE":
-            handle_mav_mode(mav_msg)
-
-        # Add more if we are waiting for more messages
-
-        await asyncio.sleep(0.01)
+        time.sleep(0.5)
+        print("Speed: ", get_rover_speed(mavlink_connection))
+        print("Power: ", get_instantaneous_power(mavlink_connection))
+        print("Encoders: ", get_motor_encoder_data(mavlink_connection))
+        print("Currents: ", get_motor_current_data(mavlink_connection))
+        print("Mode: ", get_mav_mode(mavlink_connection))
+        print(" ")

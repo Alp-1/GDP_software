@@ -15,7 +15,8 @@ print("Heartbeat from MAVLink system (system %u component %u)" % (
 mavlink_connection.target_system, mavlink_connection.target_component))
 vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 
-obstacle_threshold = 4.0
+# Threshold for what we consider an obstacle (in meters)
+obstacle_threshold = 1.0
 
 def send_ned_velocity(velocity_x, velocity_y, velocity_z, duration):
     """
@@ -210,11 +211,25 @@ def initialize_realsense():
 rover_width = 0.5  # Adjust to your rover's width
 
 def obstacle_ahead(depth_image, depth_scale):
-    depth_image_meters = depth_image * depth_scale
-    # Calculate the mean of the middle column
-    middle_column_mean = np.mean(depth_image_meters[:, depth_image_meters.shape[1] // 2])
-    print(middle_column_mean)
-    if middle_column_mean<obstacle_threshold:
+    depth_image= depth_image * depth_scale
+
+    # Calculate the size of the central square
+    central_width = depth_image.shape[1] // 3
+    central_height = depth_image.shape[0] // 4
+
+    # Calculate the starting indices for the central square
+    start_row = (depth_image.shape[0] - central_height) // 2
+    start_col = (depth_image.shape[1] - central_width) // 2
+
+    # Select the central square
+    central_square = depth_image[start_row:start_row + central_height, start_col:start_col + central_width]
+
+    # Create a masked array where 0 values are masked
+    masked_array = np.ma.masked_where(central_square == 0, central_square)
+
+    # Find the minimum value while excluding masked values (0s)
+    min_value_without_zeros = np.min(masked_array)
+    if min_value_without_zeros<obstacle_threshold:
         return True
     else:
         return False
@@ -225,7 +240,6 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
     depth_image_meters = depth_image * depth_scale
 
     # Threshold for what we consider an obstacle (in meters)
-    obstacle_threshold = 1.0  # e.g., 1 meter
     column_means = np.mean(depth_image_meters, axis=0)
     # Find the index of the column with the highest mean
     index_of_highest_mean = np.argmax(column_means)
