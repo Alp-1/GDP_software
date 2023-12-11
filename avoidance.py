@@ -199,7 +199,9 @@ def move_back(steps):
 def navigate_avoiding_obstacles(depth_scale):
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
-    hole_filling = rs.hole_filling_filter()
+    hole_filling = rs.hole_filling_filter(1)
+    threshold_filter = rs.threshold_filter(0.3, 16)
+    depth_frame = threshold_filter.process(depth_frame)
     depth_frame = hole_filling.process(depth_frame)
     if not depth_frame:
         return

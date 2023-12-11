@@ -3,11 +3,12 @@ import numpy as np
 import pyrealsense2 as rs
 import time
 import scipy
-#
+import cv2
 # cell_height = 120
 # cell_width = 212
 # grid_n = 4
 # grid_m = 4
+from matplotlib import pyplot as plt
 
 cell_height = 60
 cell_width = 106
@@ -34,10 +35,17 @@ def main():
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
 
-    hole_filling = rs.hole_filling_filter()
+    hole_filling = rs.hole_filling_filter(1)
+    threshold_filter = rs.threshold_filter(0.3, 16)
+    depth_frame = threshold_filter.process(depth_frame)
     depth_frame = hole_filling.process(depth_frame)
     depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
 
+
+    print(np.min(depth_image))
+    print(np.max(depth_image))
+    num_zeros = np.count_nonzero(depth_image == 0)
+    print(num_zeros)
     start_time = time.time()
 
     depth_grid = scipy.sparse.bsr_matrix(depth_image, blocksize=(cell_height,cell_width)).data
@@ -57,7 +65,10 @@ def main():
                                                      ransac_n=3,
                                                      num_iterations=100)
         [a, b, c, d] = plane_model
-        slope = -c / a
+        if a==0:
+            slope = 100
+        else:
+            slope = -c / a
         slope_grid[i,j] = slope
         if j==(grid_n-1):
             i += 1
