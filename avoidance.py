@@ -11,7 +11,7 @@ print("Heartbeat from MAVLink system (system %u component %u)" % (
     mavlink_connection.target_system, mavlink_connection.target_component))
 vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 
-obstacle_threshold = 2.0
+obstacle_threshold = 1.0
 column_width = 20
 
 def mavlink_turn(velocity_x, velocity_y, velocity_z, yaw):
@@ -120,11 +120,25 @@ rover_width = 0.5  # Adjust to your rover's width
 
 
 def obstacle_ahead(depth_image, depth_scale):
-    depth_image_meters = depth_image * depth_scale
-    # Calculate the mean of the middle column
-    middle_column_mean = np.mean(depth_image_meters[:, depth_image_meters.shape[1] // 2])
-    print(middle_column_mean)
-    if middle_column_mean < obstacle_threshold:
+    depth_image= depth_image * depth_scale
+
+    # Calculate the size of the central square
+    central_width = depth_image.shape[1] // 3
+    central_height = depth_image.shape[0] // 4
+
+    # Calculate the starting indices for the central square
+    start_row = (depth_image.shape[0] - central_height) // 2
+    start_col = (depth_image.shape[1] - central_width) // 2
+
+    # Select the central square
+    central_square = depth_image[start_row:start_row + central_height, start_col:start_col + central_width]
+
+    # Create a masked array where 0 values are masked
+    masked_array = np.ma.masked_where(central_square == 0, central_square)
+
+    # Find the minimum value while excluding masked values (0s)
+    min_value_without_zeros = np.min(masked_array)
+    if min_value_without_zeros<obstacle_threshold:
         return True
     else:
         return False
@@ -185,6 +199,8 @@ def move_back(steps):
 def navigate_avoiding_obstacles(depth_scale):
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
+    hole_filling = rs.hole_filling_filter()
+    depth_frame = hole_filling.process(depth_frame)
     if not depth_frame:
         return
 

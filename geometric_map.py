@@ -33,8 +33,12 @@ def main():
 
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
-    start_time = time.time()
+
+    hole_filling = rs.hole_filling_filter()
+    depth_frame = hole_filling.process(depth_frame)
     depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
+
+    start_time = time.time()
 
     depth_grid = scipy.sparse.bsr_matrix(depth_image, blocksize=(cell_height,cell_width)).data
     np_grid = np.asanyarray(depth_grid)
@@ -60,10 +64,12 @@ def main():
             j = 0
         else:
             j += 1
-        print(i)
-        print(j)
-        print(f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
-    # print(slope_grid)
+        # print(i)
+        # print(j)
+        # print(f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
+
+    # slope_grid = slope_grid[:-1,:]
+
     for row in slope_grid:
         print(" ".join(map(str, row)))
     image_o3d = o3d.geometry.Image(depth_image.astype(np.float32))
