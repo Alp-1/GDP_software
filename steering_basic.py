@@ -7,7 +7,7 @@ import json
 from pymavlink import mavutil
 # from dronekit import connect, VehicleMode, LocationGlobalRelative
 from dronekit import *
-
+import mav_listener
 # Connect to the vehicle
 mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)
 mavlink_connection.wait_heartbeat()
@@ -316,6 +316,55 @@ def navigate_avoiding_obstacles(depth_scale):
                 print("no obstacle ahead")
                 vehicle.mode = VehicleMode("AUTO")
                 override_rc_channels(1600, 1500, 0, 0)  # Override throttle and steering channels
+import time
+
+def detect_collision(mavlink_connection):
+    """
+    Detects collision by comparing rover speed from MAVLink and optical flow data.
+    """
+    start_time = time.time()
+    collision_detected = False
+
+    while time.time() - start_time < 5:
+        # Retrieve speed data from MAVLink
+        current_speed = mav_listener.get_rover_speed(mavlink_connection)  # Speed in cm/s
+
+        # Retrieve optical flow data from MAVLink
+        optical_flow_data = mav_listener.get_optical_flow_data_from_mavlink(mavlink_connection)
+
+        # Check for near-zero optical flow and non-zero speed
+        if is_near_zero(optical_flow_data) and current_speed > 0:
+            collision_detected = True
+            break
+        time.sleep(0.1)  # Adjust time interval as needed
+
+    if collision_detected:
+        print("Collision detected. Reversing and finding another path.")
+        # Implement actions after detecting collision, e.g., move_back, find_alternate_path, etc.
+
+def is_near_zero(data, threshold=0.1):
+    """
+    Check if data is near zero within a given threshold.
+    """
+    x, y = data
+    return abs(x) < threshold and abs(y) < threshold
+
+def get_optical_flow_data_from_mavlink():
+    """
+    Retrieve optical flow data from MAVLink.
+    """
+    # Fetch optical flow data from a relevant MAVLink message
+    # Example: Use flow_x and flow_y for optical flow data
+    optical_flow_msg = mavlink_connection.recv_match(type='OPTICAL_FLOW', blocking=True)
+    if optical_flow_msg:
+        return optical_flow_msg.flow_x, optical_flow_msg.flow_y
+    else:
+        return 0, 0
+
+# Implement move_back() and find_alternate_path() as needed
+
+
+
 
 
 
@@ -325,6 +374,7 @@ try:
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
     print("Depth Scale is: ", depth_scale)
+    detect_collision()
     vehicle.armed = True
     # turn_rover(90, relative=True)
     print(vehicle.mode)
