@@ -330,7 +330,7 @@ def detect_collision(mavlink_connection):
         current_speed = mav_listener.get_rover_speed(mavlink_connection)  # Speed in cm/s
         print(current_speed)
         # Retrieve optical flow data from MAVLink
-        optical_flow_data = get_optical_flow_data_from_mavlink(mavlink_connection)
+        optical_flow_data = get_optical_flow_data_from_mavlink()
         print(optical_flow_data)
         # Check for near-zero optical flow and non-zero speed
         if is_near_zero(optical_flow_data) and current_speed > 0:
