@@ -328,10 +328,10 @@ def detect_collision(mavlink_connection):
     while time.time() - start_time < 5:
         # Retrieve speed data from MAVLink
         current_speed = mav_listener.get_rover_speed(mavlink_connection)  # Speed in cm/s
-
+        print(current_speed)
         # Retrieve optical flow data from MAVLink
-        optical_flow_data = mav_listener.get_optical_flow_data_from_mavlink(mavlink_connection)
-
+        optical_flow_data = get_optical_flow_data_from_mavlink(mavlink_connection)
+        print(optical_flow_data)
         # Check for near-zero optical flow and non-zero speed
         if is_near_zero(optical_flow_data) and current_speed > 0:
             collision_detected = True
@@ -374,7 +374,7 @@ try:
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
     print("Depth Scale is: ", depth_scale)
-    detect_collision()
+    detect_collision(mavlink_connection)
     vehicle.armed = True
     # turn_rover(90, relative=True)
     print(vehicle.mode)
