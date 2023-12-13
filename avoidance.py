@@ -167,7 +167,7 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
     # column_means = np.mean(depth_image_meters, axis=0)
     # index_of_highest_mean = np.argmax(column_means)
     index_of_highest_mean = clearest_path(depth_image_meters)
-    angle = index_of_highest_mean / len(depth_image.shape[1]) * 87 - (87 / 2)
+    angle = index_of_highest_mean / depth_image.shape[1] * 87 - (87 / 2)
     angle =(angle+360) % 360
     return angle
 
@@ -209,7 +209,6 @@ def navigate_avoiding_obstacles(depth_scale):
         return
 
     depth_image = np.asanyarray(depth_frame.get_data())
-    print(depth_image.shape[1])
     print(vehicle.mode.name)
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
         vehicle.mode = VehicleMode("GUIDED")
@@ -222,10 +221,10 @@ def navigate_avoiding_obstacles(depth_scale):
             # ack_msg = mavlink_connection.recv_match(type='COMMAND_ACK',blocking=False)
             # print(ack_msg)
         time.sleep(2)
+        mavlink_velocity(0.5,0,0)
         print("going forward")
-        mavlink_velocity(0.1,0,0)
 
-        mavlink_turn_and_go(0.1,0,0,angle)
+        # mavlink_turn_and_go(0.1,0,0,angle)
         time.sleep(1)
 # Main execution loop
 try:
