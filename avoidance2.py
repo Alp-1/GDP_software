@@ -14,6 +14,7 @@ vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 obstacle_threshold = 1.0
 column_width = 20
 
+
 def mavlink_turn(velocity_x, velocity_y, velocity_z, yaw):
     """
     Move vehicle in direction based on specified velocity vectors using pymavlink.
@@ -30,6 +31,7 @@ def mavlink_turn(velocity_x, velocity_y, velocity_z, yaw):
         math.radians(yaw), 0)  # yaw, yaw_rate
     print("done")
 
+
 def mavlink_velocity(velocity_x, velocity_y, velocity_z):
     mavlink_connection.mav.set_position_target_local_ned_send(
         0,  # time_boot_ms (not used)
@@ -41,8 +43,9 @@ def mavlink_velocity(velocity_x, velocity_y, velocity_z):
         velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         0, 0)  # yaw, yaw_rate
-    
+
     print("sexy")
+
 
 def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
     mavlink_connection.mav.set_position_target_local_ned_send(
@@ -50,11 +53,12 @@ def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
         mavlink_connection.target_system,  # target system
         mavlink_connection.target_component,  # target component
         mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
-        0b100111100111 ,  # type_mask (only speeds enabled)
+        0b100111100111,  # type_mask (only speeds enabled)
         0, 0, 0,  # x, y, z positions (not used)
         velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         math.radians(yaw), 0)  # yaw, yaw_rate
+
 
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
@@ -122,7 +126,7 @@ rover_width = 0.5  # Adjust to your rover's width
 
 
 def obstacle_ahead(depth_image, depth_scale):
-    depth_image= depth_image * depth_scale
+    depth_image = depth_image * depth_scale
 
     # Calculate the size of the central square
     central_width = depth_image.shape[1] // 3
@@ -140,10 +144,11 @@ def obstacle_ahead(depth_image, depth_scale):
 
     # Find the minimum value while excluding masked values (0s)
     min_value_without_zeros = np.min(masked_array)
-    if min_value_without_zeros<obstacle_threshold:
+    if min_value_without_zeros < obstacle_threshold:
         return True
     else:
         return False
+
 
 def clearest_path(depth_image):
     # Calculate the rolling mean for consecutive columns
@@ -157,6 +162,7 @@ def clearest_path(depth_image):
 
     return middle_index
 
+
 # Function to find a clear path and calculate its direction
 def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width):
     # Convert depth image to meters
@@ -168,7 +174,7 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
     # index_of_highest_mean = np.argmax(column_means)
     index_of_highest_mean = clearest_path(depth_image_meters)
     angle = index_of_highest_mean / depth_image.shape[1] * 87 - (87 / 2)
-    angle =(angle+360) % 360
+    angle = (angle + 360) % 360
     return angle
 
 
@@ -214,18 +220,10 @@ def navigate_avoiding_obstacles(depth_scale):
         vehicle.mode = VehicleMode("GUIDED")
         angle = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
         print(angle)
-        mavlink_turn(0,0,0,angle)
+        mavlink_turn(0, 0, 0, angle)
         print("turning")
-        #mavlink_connection.wait_heartbeat()
-        # while True:
-            # ack_msg = mavlink_connection.recv_match(type='COMMAND_ACK',blocking=False)
-            # print(ack_msg)
-        time.sleep(1)
-        mavlink_velocity(0.5,0,0)
-        print("going forward")
 
-        # mavlink_turn_and_go(0.1,0,0,angle)
-        time.sleep(1)
+
 # Main execution loop
 try:
     pipeline, profile = initialize_realsense()
@@ -239,10 +237,20 @@ try:
         depth_frame = frames.get_depth_frame()
         depth_image = np.asanyarray(depth_frame.get_data())
 
-        # Check for obstacles
-        if obstacle_ahead(depth_image, depth_scale):
-            print("Obstacle detected! Taking evasive action.")
-            continue
+        current_time = time.time()
+
+        if current_time % 2.5 == 0:
+            mavlink_velocity(0.5,0,0)
+
+        if current_time % 0.5 == 0:
+            # Check for obstacles
+            if obstacle_ahead(depth_image, depth_scale):
+                print("Obstacle detected! Taking evasive action.")
+                continue
+            navigate_avoiding_obstacles(depth_scale)
+
+        time.sleep(0.1)  # Adjust the sleep time to control the loop frequency
+
         navigate_avoiding_obstacles(depth_scale)
 except KeyboardInterrupt:
     print("Script terminated by user")
