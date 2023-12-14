@@ -239,7 +239,7 @@ try:
 
         current_time = time.time()
 
-        if current_time % 2.5 == 0:
+        if current_time % 2 == 0:
             mavlink_velocity(0.5,0,0)
 
         if current_time % 0.5 == 0:
