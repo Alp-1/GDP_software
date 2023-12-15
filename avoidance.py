@@ -18,6 +18,7 @@ obstacle_threshold = 1.0
 column_width = 20
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
+folder_name = ""
 
 def create_folder(folder_name):
     # Create a folder if it doesn't exist
@@ -114,10 +115,26 @@ def initialize_realsense():
     sensor.set_option(rs.option.gain, 85.0)
 
     depth_sensor = profile.get_device().query_sensors()[0]
-    threshold_filter = rs.threshold_filter()
-    threshold_filter.set_option(rs.option.max_distance, 10)
+    depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5
     return pipeline, profile
 
+def apply_filters(depth_frame):
+    decimation = rs.decimation_filter()
+    spatial = rs.spatial_filter()
+    hole_filling = rs.hole_filling_filter(2) #use min of neighbour cells,might need changing
+    threshold_filter = rs.threshold_filter(0.3, 16)
+    depth_to_disparity = rs.disparity_transform(True)
+    disparity_to_depth = rs.disparity_transform(False)
+
+    # spatial.set_option(rs.option.holes_fill, 3) #try 5??
+    frame = depth_frame
+    frame = threshold_filter.process(frame)
+    frame = decimation.process(frame)
+    frame = depth_to_disparity.process(frame)
+    frame = spatial.process(frame)
+    frame = disparity_to_depth.process(frame)
+    frame = hole_filling.process(frame)
+    return frame
 
 def distance_to_obstacle(depth_image, depth_scale):
     depth_image= depth_image * depth_scale
@@ -194,14 +211,17 @@ def move_back(steps):
 def navigate_avoiding_obstacles(depth_scale):
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
-    hole_filling = rs.hole_filling_filter(1)
-    threshold_filter = rs.threshold_filter(0.3, 16)
-    depth_frame = threshold_filter.process(depth_frame)
-    depth_frame = hole_filling.process(depth_frame)
     if not depth_frame:
         return
 
+    start_time = time.time()
+    depth_frame = apply_filters(depth_frame)
+    print("Post processing filters: --- %s seconds ---" % (time.time() - start_time))
+
     depth_image = np.asanyarray(depth_frame.get_data())
+    num_zeros = np.count_nonzero(depth_image == 0)
+    print(f"Number of zero values in depth image:{num_zeros}")
+
     print(vehicle.mode.name)
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
         vehicle.mode = VehicleMode("GUIDED")
@@ -213,7 +233,8 @@ def navigate_avoiding_obstacles(depth_scale):
         mavlink_velocity(0.5,0,0)
         print("going forward")
         time.sleep(1)
-    return angle
+        return angle
+    return 0
 
 
 # Main execution loop
@@ -241,6 +262,7 @@ try:
         chosen_angle = navigate_avoiding_obstacles(depth_scale)
 
         # Get the current time for naming the files
+        # if chosen_angle != 0:
         # current_time = datetime.now().strftime("%H-%M-%S")
         # save_data_to_txt(slope_grid,distance,chosen_angle,current_time)
         # save_rgb_image(depth_image,current_time)
