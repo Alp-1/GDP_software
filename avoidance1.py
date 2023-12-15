@@ -239,7 +239,7 @@ try:
         # Check for obstacles
         if obstacle_ahead(depth_image, depth_scale):
             print("Obstacle detected! Taking evasive action.")
-            continue
+
         navigate_avoiding_obstacles(depth_scale)
         time.sleep(0.5)
 
