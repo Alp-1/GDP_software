@@ -1,3 +1,6 @@
+import os
+from datetime import datetime
+
 import cv2
 import numpy as np
 import pyrealsense2 as rs
@@ -13,6 +16,28 @@ vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 
 obstacle_threshold = 1.0
 column_width = 20
+# Specify the width of the rover in meters
+rover_width = 0.5  # Adjust to your rover's width
+
+def create_folder(folder_name):
+    # Create a folder if it doesn't exist
+    if not os.path.exists(folder_name):
+        os.makedirs(folder_name)
+
+def save_data_to_txt(slope_grid, distance, angle, current_time):
+    # Save data to a text file
+
+    filename_data = os.path.join(folder_name, f"{current_time}_data.txt")
+    with open(filename_data, 'w') as file:
+        file.write(f"Slope Grid:\n")
+        file.write(f"{slope_grid}\n")
+        file.write(f"Distance: {distance}\n")
+        file.write(f"Angle: {angle}\n")
+
+def save_rgb_image(image,current_time):
+    filename_image = os.path.join(folder_name, f"{current_time}_image.png")
+    cv2.imwrite(filename_image, image)
+
 
 def mavlink_turn(velocity_x, velocity_y, velocity_z, yaw):
     """
@@ -28,7 +53,6 @@ def mavlink_turn(velocity_x, velocity_y, velocity_z, yaw):
         velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         math.radians(yaw), 0)  # yaw, yaw_rate
-    print("done")
 
 def mavlink_velocity(velocity_x, velocity_y, velocity_z):
     mavlink_connection.mav.set_position_target_local_ned_send(
@@ -44,27 +68,12 @@ def mavlink_velocity(velocity_x, velocity_y, velocity_z):
     
     print("sexy")
 
-def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
-    mavlink_connection.mav.set_position_target_local_ned_send(
-        0,  # time_boot_ms (not used)
-        mavlink_connection.target_system,  # target system
-        mavlink_connection.target_component,  # target component
-        mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
-        0b100111100111 ,  # type_mask (only speeds enabled)
-        0, 0, 0,  # x, y, z positions (not used)
-        velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
-        0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
-        math.radians(yaw), 0)  # yaw, yaw_rate
-
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
     print("Heartbeat received")
     print("Base Mode: {}".format(message.base_mode))
     print("Custom Mode: {}".format(message.custom_mode))
 
-
-# Add the listener for the heartbeat message
-# vehicle.add_message_listener('HEARTBEAT', heartbeat_listener)
 # Global variable for the RealSense profile
 profile = None
 
@@ -75,13 +84,6 @@ profile = None
 #     for channel, value in channels.items():
 #         channel_values[channel - 1] = value  # channels are 1-indexed in MAVLink
 #     vehicle.channels.overrides = channel_values
-
-
-# Create a message listener for all messages.
-# @vehicle.on_message('*')
-def listener(self, name, message):
-    print('message: %s' % message)
-
 
 # Function to clear RC overrides
 def override_rc_channels(ch1, ch2, ch3, ch4):
@@ -117,11 +119,7 @@ def initialize_realsense():
     return pipeline, profile
 
 
-# Specify the width of the rover in meters
-rover_width = 0.5  # Adjust to your rover's width
-
-
-def obstacle_ahead(depth_image, depth_scale):
+def distance_to_obstacle(depth_image, depth_scale):
     depth_image= depth_image * depth_scale
 
     # Calculate the size of the central square
@@ -140,10 +138,7 @@ def obstacle_ahead(depth_image, depth_scale):
 
     # Find the minimum value while excluding masked values (0s)
     min_value_without_zeros = np.min(masked_array)
-    if min_value_without_zeros<obstacle_threshold:
-        return True
-    else:
-        return False
+    return min_value_without_zeros
 
 def clearest_path(depth_image):
     # Calculate the rolling mean for consecutive columns
@@ -161,8 +156,6 @@ def clearest_path(depth_image):
 def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width):
     # Convert depth image to meters
     depth_image_meters = depth_image * depth_scale
-
-    # Threshold for what we consider an obstacle (in meters)
 
     # column_means = np.mean(depth_image_meters, axis=0)
     # index_of_highest_mean = np.argmax(column_means)
@@ -216,34 +209,42 @@ def navigate_avoiding_obstacles(depth_scale):
         print(angle)
         mavlink_turn(0,0,0,angle)
         print("turning")
-        #mavlink_connection.wait_heartbeat()
-        # while True:
-            # ack_msg = mavlink_connection.recv_match(type='COMMAND_ACK',blocking=False)
-            # print(ack_msg)
         time.sleep(1)
         mavlink_velocity(0.5,0,0)
         print("going forward")
-
-        # mavlink_turn_and_go(0.1,0,0,angle)
         time.sleep(1)
+    return angle
+
+
 # Main execution loop
 try:
+    # Get the current date and time for the folder name
+    current_date_and_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    folder_name = f"mission_{current_date_and_time}"
+    # Create a folder for the mission
+    create_folder(folder_name)
+
     pipeline, profile = initialize_realsense()
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
     print("Depth Scale is: ", depth_scale)
     vehicle.armed = True
     while True:
-        print("looking for path")
         frames = pipeline.wait_for_frames()
         depth_frame = frames.get_depth_frame()
         depth_image = np.asanyarray(depth_frame.get_data())
+        distance = distance_to_obstacle(depth_image,depth_scale)
 
-        # Check for obstacles
-        if obstacle_ahead(depth_image, depth_scale):
+        if distance < obstacle_threshold:
             print("Obstacle detected! Taking evasive action.")
 
-        navigate_avoiding_obstacles(depth_scale)
+        chosen_angle = navigate_avoiding_obstacles(depth_scale)
+
+        # Get the current time for naming the files
+        # current_time = datetime.now().strftime("%H-%M-%S")
+        # save_data_to_txt(slope_grid,distance,chosen_angle,current_time)
+        # save_rgb_image(depth_image,current_time)
+
 except KeyboardInterrupt:
     print("Script terminated by user")
 
