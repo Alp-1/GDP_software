@@ -11,11 +11,48 @@ import cv2
 from matplotlib import pyplot as plt
 
 cell_height = 60
-cell_width = 106
+cell_width = 106 #miert??
 grid_n = 8
 grid_m = 8
 
-def main():
+def get_slope_grid(depth_image,depth_intrinsics):
+    cell_height = depth_image.shape[0] / 8
+    cell_width = depth_image.shape[1] / 8
+    print(f"cell height {cell_height}")
+    print(f"cell width {cell_width}")
+    depth_grid = scipy.sparse.bsr_matrix(depth_image, blocksize=(cell_height, cell_width)).data
+    np_grid = np.asanyarray(depth_grid)
+    i = 0
+    j = 0
+    slope_grid = np.zeros((grid_n, grid_m))
+    for cell in np_grid:
+        image_o3d = o3d.geometry.Image(cell.astype(np.float32))
+        pcd = o3d.geometry.PointCloud.create_from_depth_image(
+            image_o3d, o3d.camera.PinholeCameraIntrinsic(depth_intrinsics.width, depth_intrinsics.height,
+                                                         depth_intrinsics.fx, depth_intrinsics.fy,
+                                                         depth_intrinsics.ppx, depth_intrinsics.ppy))
+        downpcd = pcd.voxel_down_sample(voxel_size=0.05)
+        plane_model, inliers = downpcd.segment_plane(distance_threshold=0.1,
+                                                     ransac_n=3,
+                                                     num_iterations=100)
+        [a, b, c, d] = plane_model
+        if a == 0:
+            slope = 100
+        else:
+            slope = -c / a
+        slope_grid[i, j] = slope
+        if j == (grid_n - 1):
+            i += 1
+            j = 0
+        else:
+            j += 1
+
+    return slope_grid
+
+def save_pointcloud():
+    return 0
+
+def testing():
     global profile
     pipeline = rs.pipeline()
     config = rs.config()
@@ -121,6 +158,5 @@ def main():
     # print(f"step height: {max_z-min_z}")
     print("--- %s seconds ---" % (time.time() - start_time))
 
-if __name__ == "__main__":
-    main()
-    # testing()
+# if __name__ == "__main__":
+#     # testing()

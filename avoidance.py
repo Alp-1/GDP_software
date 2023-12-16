@@ -6,6 +6,7 @@ import numpy as np
 import pyrealsense2 as rs
 # from dronekit import connect, VehicleMode, LocationGlobalRelative
 from dronekit import *
+import geometric_map as geo
 
 # Connect to the vehicle
 mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)
@@ -15,6 +16,7 @@ print("Heartbeat from MAVLink system (system %u component %u)" % (
 vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 
 obstacle_threshold = 1.0
+vegetation_threshold = 0.017
 column_width = 20
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
@@ -136,9 +138,7 @@ def apply_filters(depth_frame):
     frame = hole_filling.process(frame)
     return frame
 
-def distance_to_obstacle(depth_image, depth_scale):
-    depth_image= depth_image * depth_scale
-
+def distance_to_obstacle(depth_image):
     # Calculate the size of the central square
     central_width = depth_image.shape[1] // 3
     central_height = depth_image.shape[0] // 4
@@ -170,29 +170,23 @@ def clearest_path(depth_image):
     return middle_index
 
 # Function to find a clear path and calculate its direction
-def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width):
-    # Convert depth image to meters
-    depth_image_meters = depth_image * depth_scale
+def find_clear_path_and_calculate_direction(depth_image, rover_width):
 
     # column_means = np.mean(depth_image_meters, axis=0)
     # index_of_highest_mean = np.argmax(column_means)
-    index_of_highest_mean = clearest_path(depth_image_meters)
+    index_of_highest_mean = clearest_path(depth_image)
     angle = index_of_highest_mean / depth_image.shape[1] * 87 - (87 / 2)
     angle =(angle+360) % 360
     return angle
 
-
-vegetation_threshold = 0.017
-
-
-def detect_tall_vegetation(depth_image, depth_scale):
+def detect_tall_vegetation(depth_image):
     """
     Detect tall vegetation in the path.
     This is a placeholder function; you need to replace it with actual logic based on your sensor setup.
     """
     # Placeholder: Assume we detect vegetation if the mean depth in the central area is less than a threshold
     central_area = depth_image[:, depth_image.shape[1] // 2]
-    mean_depth = np.mean(central_area * depth_scale)
+    mean_depth = np.mean(central_area)
     if mean_depth < vegetation_threshold:  # vegetation_threshold is a predefined constant
         return True
     else:
@@ -208,24 +202,11 @@ def move_back(steps):
 
 
 # Function to navigate while avoiding obstacles
-def navigate_avoiding_obstacles(depth_scale):
-    frames = pipeline.wait_for_frames()
-    depth_frame = frames.get_depth_frame()
-    if not depth_frame:
-        return
-
-    start_time = time.time()
-    depth_frame = apply_filters(depth_frame)
-    print("Post processing filters: --- %s seconds ---" % (time.time() - start_time))
-
-    depth_image = np.asanyarray(depth_frame.get_data())
-    num_zeros = np.count_nonzero(depth_image == 0)
-    print(f"Number of zero values in depth image:{num_zeros}")
-
+def navigate_avoiding_obstacles(depth_image):
     print(vehicle.mode.name)
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
         vehicle.mode = VehicleMode("GUIDED")
-        angle = find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_width)
+        angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
         print(angle)
         mavlink_turn(0,0,0,angle)
         print("turning")
@@ -250,22 +231,38 @@ try:
     depth_scale = depth_sensor.get_depth_scale()
     print("Depth Scale is: ", depth_scale)
     vehicle.armed = True
-    while True:
-        frames = pipeline.wait_for_frames()
-        depth_frame = frames.get_depth_frame()
-        depth_image = np.asanyarray(depth_frame.get_data())
-        distance = distance_to_obstacle(depth_image,depth_scale)
 
+    frames = pipeline.wait_for_frames()
+    prof = frames.get_profile()
+    depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
+    while True:
+        depth_frame = frames.get_depth_frame()
+        color_frame = frames.get_color_frame()
+        color_image = np.asanyarray(color_frame.get_data())
+        if not depth_frame:
+            print("problems")
+            continue
+
+        start_time = time.time()
+        depth_frame = apply_filters(depth_frame)
+        print("Post processing filters: --- %s seconds ---" % (time.time() - start_time))
+
+        depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
+        num_zeros = np.count_nonzero(depth_image == 0)
+        print(f"Number of zero values in depth image:{num_zeros}")
+
+        distance = distance_to_obstacle(depth_image)
         if distance < obstacle_threshold:
             print("Obstacle detected! Taking evasive action.")
 
-        chosen_angle = navigate_avoiding_obstacles(depth_scale)
+        chosen_angle = navigate_avoiding_obstacles(depth_image)
 
         # Get the current time for naming the files
-        # if chosen_angle != 0:
-        # current_time = datetime.now().strftime("%H-%M-%S")
-        # save_data_to_txt(slope_grid,distance,chosen_angle,current_time)
-        # save_rgb_image(depth_image,current_time)
+        if chosen_angle != 0:
+            current_time = datetime.now().strftime("%H-%M-%S")
+            slope_grid = geo.get_slope_grid(depth_image,depth_intrinsics)
+            save_data_to_txt(slope_grid,distance,chosen_angle,current_time)
+            save_rgb_image(color_image,current_time)
 
 except KeyboardInterrupt:
     print("Script terminated by user")
