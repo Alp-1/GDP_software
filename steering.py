@@ -12,7 +12,7 @@ mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)
 mavlink_connection.wait_heartbeat()
 print("Heartbeat from MAVLink system (system %u component %u)" % (
     mavlink_connection.target_system, mavlink_connection.target_component))
-vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
+vehicle = connect('/dev/serial0', wait_ready=True, baud=57600)
 
 obstacle_threshold = 2.0
 
