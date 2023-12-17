@@ -289,6 +289,7 @@ def navigate_avoiding_obstacles(depth_scale):
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
         if detect_tall_vegetation(depth_image, depth_scale):
             print("Tall vegetation detected. Moving back.")
+            vehicle.mode = VehicleMode("GUIDED")
             move_back(2)  # Move back 2 steps
         else:
             if obstacle_ahead(depth_image,depth_scale):
