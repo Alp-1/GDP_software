@@ -256,18 +256,37 @@ def find_clear_path_and_calculate_direction(depth_image, depth_scale, rover_widt
     return yaw_angle
 
 vegetation_threshold = 0.017
-def detect_tall_vegetation(depth_image, depth_scale):
+def detect_tall_vegetation(depth_image, depth_scale, vegetation_height_threshold):
     """
-    Detect tall vegetation in the path.
-    This is a placeholder function; you need to replace it with actual logic based on your sensor setup.
+    Detect tall vegetation in the path using a RealSense depth image.
+
+    Parameters:
+    depth_image (ndarray): The depth image from the RealSense camera.
+    depth_scale (float): The scale to convert depth units to meters.
+    vegetation_height_threshold (float): The minimum height (in meters) to consider as vegetation.
+
+    Returns:
+    bool: True if tall vegetation is detected, False otherwise.
     """
-    # Placeholder: Assume we detect vegetation if the mean depth in the central area is less than a threshold
-    central_area = depth_image[:, depth_image.shape[1] // 2]
-    mean_depth = np.mean(central_area * depth_scale)
-    if mean_depth < vegetation_threshold:  # vegetation_threshold is a predefined constant
-        return True
-    else:
-        return False
+    vegetation_height_threshold = 0.2 
+    # Convert depth image to meters
+    depth_in_meters = depth_image * depth_scale
+
+    # Define the region of interest (ROI) in the image
+    # For example, you might want to focus on the lower part of the image
+    roi_start_row = int(depth_in_meters.shape[0] * 0.5)  # Starting from the middle row
+    roi_end_row = depth_in_meters.shape[0]  # To the end of the image
+    roi = depth_in_meters[roi_start_row:roi_end_row, :]
+
+    # Find areas in the ROI where the depth suddenly changes
+    # This can be done by calculating the gradient and looking for large changes
+    depth_gradient = np.abs(np.gradient(roi, axis=0))
+    vegetation_mask = depth_gradient > vegetation_height_threshold
+
+    # Detect vegetation if there are significant changes in depth
+    vegetation_detected = np.any(vegetation_mask)
+    print("detected")
+    return vegetation_detected
 
 def move_back(steps):
     """
