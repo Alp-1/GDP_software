@@ -18,8 +18,6 @@ grid_m = 8
 def get_slope_grid(depth_image,depth_intrinsics):
     cell_height = int(depth_image.shape[0] // 8)
     cell_width = int(depth_image.shape[1] // 8)
-    print(f"cell height {cell_height}")
-    print(f"cell width {cell_width}")
     depth_grid = scipy.sparse.bsr_matrix(depth_image, blocksize=(cell_height, cell_width), dtype=np.float32).data
     np_grid = np.asanyarray(depth_grid)
     i = 0

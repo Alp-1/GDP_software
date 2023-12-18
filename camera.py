@@ -94,10 +94,13 @@ def is_deadend(depth_image,direction_column):
 
     square = depth_image[start_row:start_row + square_height, start_col:start_col + square_width]
     # Create a masked array where 0 values are masked
-    # masked_array = np.ma.masked_where(square == 0, square) #this might be bad, it also excludes points that are closer than minz
+    masked_array = np.ma.masked_where(square == 0, square) #this might be bad, it also excludes points that are closer than minz
 
     # Find the minimum value while excluding masked values (0s)
-    min_value_without_zeros = np.min(square)
+    min_value_without_zeros = np.min(masked_array)
+    print(f"clearest patch:\n")
+    print(masked_array)
+    print(min_value_without_zeros)
     if min_value_without_zeros < obstacle_threshold:
         return True
     else:
@@ -160,6 +163,11 @@ def distance_to_obstacle(depth_image):
 
     # Find the minimum value while excluding masked values (0s)
     min_value_without_zeros = np.min(masked_array)
+
+    print(f"middle patch:\n")
+    print(masked_array)
+    print(min_value_without_zeros)
+    
     return min_value_without_zeros
 
 # code from https://github.com/soarwing52/RealsensePython/blob/master/separate%20functions/measure_new.py
@@ -182,6 +190,24 @@ def calculate_distance(depth_image,x1,y1,x2,y2):
             point1[2] - point2[2], 2))
     # result[0]: right, result[1]: down, result[2]: forward
     return dist
+
+def gap_size(depth_image,column):
+    gap_threshold = 0.4
+    start_row = depth_image.shape[0] // 2
+    width_left = column
+    width_right = column
+    while width_left > 1:
+        if (depth_image[start_row,width_left-1] - depth_image[start_row,width_left]) > gap_threshold:
+            break
+        else:
+            width_left -= 1
+    while width_right < (depth_image.shape[1] - 3):
+        if (depth_image[start_row,width_right+1] - depth_image[start_row,width_right]) > gap_threshold:
+            break
+        else:
+            width_right += 1
+
+    return calculate_distance(depth_image,width_left,start_row,width_right,start_row)
 
 
 # Main execution loop
