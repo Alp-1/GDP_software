@@ -17,17 +17,18 @@ vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 
 obstacle_threshold = 1.0
 vegetation_threshold = 0.017
-column_width = 20
+column_width = 40  # might need adjusting
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
 folder_name = ""
+# deadend_status = False
 
 def create_folder(folder_name):
     # Create a folder if it doesn't exist
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
 
-def save_data_to_txt(slope_grid, distance, angle, current_time):
+def save_data_to_txt(slope_grid, distance, angle, status, current_time):
     # Save data to a text file
 
     filename_data = os.path.join(folder_name, f"{current_time}_data.txt")
@@ -36,6 +37,7 @@ def save_data_to_txt(slope_grid, distance, angle, current_time):
         file.write(f"{slope_grid}\n")
         file.write(f"Distance: {distance}\n")
         file.write(f"Angle: {angle}\n")
+        file.write(f"It's a deadend: {status}\n")
 
 def save_rgb_image(image,current_time):
     filename_image = os.path.join(folder_name, f"{current_time}_image.png")
@@ -68,7 +70,7 @@ def mavlink_velocity(velocity_x, velocity_y, velocity_z):
         velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         0, 0)  # yaw, yaw_rate
-    
+
     print("sexy")
 
 # Function to be called whenever HEARTBEAT messages are received
@@ -80,13 +82,6 @@ def heartbeat_listener(self, name, message):
 # Global variable for the RealSense profile
 profile = None
 
-
-# Function to override RC channels
-# def override_rc(channels):
-#     channel_values = [0] * 8  # there are eight RC channels on most systems
-#     for channel, value in channels.items():
-#         channel_values[channel - 1] = value  # channels are 1-indexed in MAVLink
-#     vehicle.channels.overrides = channel_values
 
 # Function to clear RC overrides
 def override_rc_channels(ch1, ch2, ch3, ch4):
@@ -138,6 +133,52 @@ def apply_filters(depth_frame):
     frame = hole_filling.process(frame)
     return frame
 
+def get_new_images():
+    depth_frame = frames.get_depth_frame()
+    color_frame = frames.get_color_frame()
+    if not depth_frame or not color_frame:
+        print("problems")
+
+    color_image = np.asanyarray(color_frame.get_data())
+    depth_frame = apply_filters(depth_frame)
+    depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
+    return depth_image,color_image
+
+def is_deadend(depth_image,direction_column):
+    square_height = depth_image.shape[0] // 4
+    square_width = column_width
+    start_row = (depth_image.shape[0] - square_height) // 2
+    start_col = direction_column - (square_width // 2)
+
+    square = depth_image[start_row:start_row + square_height, start_col:start_col + square_width]
+    # Create a masked array where 0 values are masked
+    # masked_array = np.ma.masked_where(square == 0, square) #this might be bad, it also excludes points that are closer than minz
+
+    # Find the minimum value while excluding masked values (0s)
+    min_value_without_zeros = np.min(square)
+    if min_value_without_zeros < obstacle_threshold:
+        return True
+    else:
+        return False
+
+def deadend_protocol():
+    mavlink_velocity(0, 0, 0)
+    time.sleep(0.1)
+    mavlink_turn(0, 0, 0, 45)
+    depth_image,color_image = get_new_images()
+    new_column, new_angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
+    if not is_deadend(depth_image, new_column):
+        movement_commands(new_angle)
+    else:
+        mavlink_turn(0, 0, 0, 270)
+        depth_image, color_image = get_new_images()
+        new_column, new_angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
+        if not is_deadend(depth_image,new_column):
+            movement_commands(new_angle)
+        else:
+            print("Alp stuff")
+#             other stuff
+
 def distance_to_obstacle(depth_image):
     # Calculate the size of the central square
     central_width = depth_image.shape[1] // 3
@@ -177,7 +218,7 @@ def find_clear_path_and_calculate_direction(depth_image, rover_width):
     index_of_highest_mean = clearest_path(depth_image)
     angle = index_of_highest_mean / depth_image.shape[1] * 87 - (87 / 2)
     angle =(angle+360) % 360
-    return angle
+    return index_of_highest_mean, angle
 
 def detect_tall_vegetation(depth_image):
     """
@@ -200,20 +241,38 @@ def move_back(steps):
     # for _ in range(steps):
     #     send_ned_velocity(-1, 0, 0, 1)
 
+def movement_commands(angle):
+    print(angle)
+    mavlink_turn(0, 0, 0, angle)
+    print("turning")
+    time.sleep(1)
+    mavlink_velocity(0.7, 0, 0)
+    print("going forward")
+    time.sleep(1)
 
 # Function to navigate while avoiding obstacles
-def navigate_avoiding_obstacles(depth_image):
+def navigate_avoiding_obstacles(depth_image,color_image):
     print(vehicle.mode.name)
+    deadend_status = False
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
         vehicle.mode = VehicleMode("GUIDED")
-        angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
-        print(angle)
-        mavlink_turn(0,0,0,angle)
-        print("turning")
-        time.sleep(1)
-        mavlink_velocity(0.5,0,0)
-        print("going forward")
-        time.sleep(1)
+        column_index, angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
+        if is_deadend(depth_image,column_index):
+            print("deadend")
+            deadend_status = True
+
+        current_time = datetime.now().strftime("%H-%M-%S")
+        start_time = time.time()
+        slope_grid = geo.get_slope_grid(depth_image, depth_intrinsics)
+        print("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
+
+        save_data_to_txt(slope_grid, distance, chosen_angle, deadend_status, current_time)
+        save_rgb_image(color_image, current_time)
+
+        if deadend_status:
+            deadend_protocol()
+        else:
+            movement_commands(angle)
         return angle
     return 0
 
@@ -236,6 +295,7 @@ try:
     prof = frames.get_profile()
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
     while True:
+        # deadend_status = False
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
         color_image = np.asanyarray(color_frame.get_data())
@@ -255,14 +315,8 @@ try:
         if distance < obstacle_threshold:
             print("Obstacle detected! Taking evasive action.")
 
-        chosen_angle = navigate_avoiding_obstacles(depth_image)
+        chosen_angle = navigate_avoiding_obstacles(depth_image,color_image)
 
-        # Get the current time for naming the files
-        if chosen_angle != 0:
-            current_time = datetime.now().strftime("%H-%M-%S")
-            slope_grid = geo.get_slope_grid(depth_image,depth_intrinsics)
-            save_data_to_txt(slope_grid,distance,chosen_angle,current_time)
-            save_rgb_image(color_image,current_time)
 
 except KeyboardInterrupt:
     print("Script terminated by user")
