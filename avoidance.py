@@ -28,7 +28,7 @@ def create_folder(folder_name):
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
 
-def save_data_to_txt(slope_grid, distance, angle, status, current_time):
+def save_data_to_txt(slope_grid, distance, angle, status, width, current_time):
     # Save data to a text file
 
     filename_data = os.path.join(folder_name, f"{current_time}_data.txt")
@@ -38,6 +38,7 @@ def save_data_to_txt(slope_grid, distance, angle, status, current_time):
         file.write(f"Distance: {distance}\n")
         file.write(f"Angle: {angle}\n")
         file.write(f"It's a deadend: {status}\n")
+        file.write(f"gap width: {width}\n")
 
 def save_rgb_image(image,current_time):
     filename_image = os.path.join(folder_name, f"{current_time}_image.png")
@@ -112,7 +113,7 @@ def initialize_realsense():
     sensor.set_option(rs.option.gain, 85.0)
 
     depth_sensor = profile.get_device().query_sensors()[0]
-    depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5
+    # depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5. doesn't work rn, maybe because of no advanced mode on pi?
     return pipeline, profile
 
 def apply_filters(depth_frame):
@@ -153,10 +154,10 @@ def is_deadend(depth_image,direction_column):
 
     square = depth_image[start_row:start_row + square_height, start_col:start_col + square_width]
     # Create a masked array where 0 values are masked
-    # masked_array = np.ma.masked_where(square == 0, square) #this might be bad, it also excludes points that are closer than minz
+    masked_array = np.ma.masked_where(square == 0, square) #this might be bad, it also excludes points that are closer than minz
 
     # Find the minimum value while excluding masked values (0s)
-    min_value_without_zeros = np.min(square)
+    min_value_without_zeros = np.min(masked_array)
     if min_value_without_zeros < obstacle_threshold:
         return True
     else:
@@ -164,14 +165,16 @@ def is_deadend(depth_image,direction_column):
 
 def deadend_protocol():
     mavlink_velocity(0, 0, 0)
-    time.sleep(0.1)
+    time.sleep(0.2)
     mavlink_turn(0, 0, 0, 45)
+    time.sleep(0.2)
     depth_image,color_image = get_new_images()
     new_column, new_angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
     if not is_deadend(depth_image, new_column):
         movement_commands(new_angle)
     else:
         mavlink_turn(0, 0, 0, 270)
+        time.sleep(0.2)
         depth_image, color_image = get_new_images()
         new_column, new_angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
         if not is_deadend(depth_image,new_column):
@@ -198,6 +201,40 @@ def distance_to_obstacle(depth_image):
     # Find the minimum value while excluding masked values (0s)
     min_value_without_zeros = np.min(masked_array)
     return min_value_without_zeros
+
+def calculate_distance(depth_image,x1,y1,x2,y2):
+    udist = depth_image[y1,x1]
+    vdist = depth_image[y2,x2]
+    point1 = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [x1, y1], udist)
+    point2 = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [x2, y2], vdist)
+    # print(point1)
+    # print(point2)
+    # euclidean distance between two points, measured in meters
+    dist = math.sqrt(
+        math.pow(point1[0] - point2[0], 2) + math.pow(point1[1] - point2[1], 2) + math.pow(
+            point1[2] - point2[2], 2))
+    # result[0]: right, result[1]: down, result[2]: forward
+    return dist
+
+def gap_size(depth_image,column):
+    gap_threshold = 0.4
+    start_row = depth_image.shape[0] // 2
+    width_left = column
+    width_right = column
+    while width_left > 1:
+        if (depth_image[start_row,width_left-1] - depth_image[start_row,width_left]) > gap_threshold:
+            break
+        else:
+            width_left -= 1
+    while width_right < (depth_image.shape[1] - 3):
+        if (depth_image[start_row,width_right+1] - depth_image[start_row,width_right]) > gap_threshold:
+            break
+        else:
+            width_right += 1
+
+    return calculate_distance(depth_image,width_left,start_row,width_right,start_row)
+
+
 
 def clearest_path(depth_image):
     # Calculate the rolling mean for consecutive columns
@@ -258,6 +295,8 @@ def navigate_avoiding_obstacles(depth_image,color_image):
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
         vehicle.mode = VehicleMode("GUIDED")
         column_index, angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
+        gap_width = gap_size(depth_image,column_index)
+
         if is_deadend(depth_image,column_index):
             print("deadend")
             deadend_status = True
@@ -267,7 +306,7 @@ def navigate_avoiding_obstacles(depth_image,color_image):
         slope_grid = geo.get_slope_grid(depth_image, depth_intrinsics)
         print("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
 
-        save_data_to_txt(slope_grid, distance, chosen_angle, deadend_status, current_time)
+        save_data_to_txt(slope_grid, distance, angle, deadend_status, gap_width, current_time)
         save_rgb_image(color_image, current_time)
 
         if deadend_status:
