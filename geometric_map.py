@@ -32,14 +32,17 @@ def get_slope_grid(depth_image,depth_intrinsics):
                                                          depth_intrinsics.fx, depth_intrinsics.fy,
                                                          depth_intrinsics.ppx, depth_intrinsics.ppy))
         downpcd = pcd.voxel_down_sample(voxel_size=0.05)
-        plane_model, inliers = downpcd.segment_plane(distance_threshold=0.1,
-                                                     ransac_n=3,
-                                                     num_iterations=100)
-        [a, b, c, d] = plane_model
-        if a == 0:
-            slope = 100
+        if len(downpcd.points)>10:
+            plane_model, inliers = downpcd.segment_plane(distance_threshold=0.1,
+                                                         ransac_n=3,
+                                                         num_iterations=100)
+            [a, b, c, d] = plane_model
+            if a == 0:
+                slope = 100
+            else:
+                slope = -c / a
         else:
-            slope = -c / a
+            slope = 100
         slope_grid[i, j] = slope
         if j == (grid_n - 1):
             i += 1
