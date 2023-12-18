@@ -53,7 +53,7 @@ def initialize_realsense():
     sensor.set_option(rs.option.gain, 85.0)
 
     depth_sensor = profile.get_device().query_sensors()[0]
-    depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5
+    # depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5
     return pipeline, profile
 
 def apply_filters(depth_frame):
@@ -138,7 +138,7 @@ def navigate_avoiding_obstacles(depth_image,color_image):
     slope_grid = geo.get_slope_grid(depth_image, depth_intrinsics)
     print("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
 
-    save_data_to_txt(slope_grid, distance, chosen_angle, deadend_status, current_time)
+    save_data_to_txt(slope_grid, distance, angle, deadend_status, current_time)
     save_rgb_image(color_image, current_time)
 
     return 0
@@ -168,6 +168,7 @@ def calculate_distance(depth_image,x1,y1,x2,y2):
     # vdist = depth_frame.get_distance(x2, y2)
     udist = depth_image[y1,x1]
     vdist = depth_image[y2,x2]
+    print("distances to points from camera")
     print (udist)
     print (vdist)
 
@@ -199,6 +200,7 @@ try:
     frames = pipeline.wait_for_frames()
     prof = frames.get_profile()
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
+    time.sleep(5)
     while True:
         # deadend_status = False
         depth_frame = frames.get_depth_frame()
@@ -213,6 +215,7 @@ try:
         print("Post processing filters: --- %s seconds ---" % (time.time() - start_time))
 
         depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
+        print(depth_image.shape)
         num_zeros = np.count_nonzero(depth_image == 0)
         print(f"Number of zero values in depth image:{num_zeros}")
 
@@ -220,15 +223,17 @@ try:
         if distance < obstacle_threshold:
             print("Obstacle detected! Taking evasive action.")
 
+        print(calculate_distance(depth_image,200,150,215,150))
         chosen_angle = navigate_avoiding_obstacles(depth_image,color_image)
-        print(calculate_distance(depth_image,210,190,250,190))
+
         time.sleep(9999999)
 
 except KeyboardInterrupt:
     print("Script terminated by user")
 
 finally:
+    print("ok")
     # clear_rc_overrides()
-    pipeline.stop()
-    cv2.destroyAllWindows()
-    print("Connection closed.")
+    # pipeline.stop()
+    # cv2.destroyAllWindows()
+    # print("Connection closed.")

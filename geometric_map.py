@@ -16,11 +16,11 @@ grid_n = 8
 grid_m = 8
 
 def get_slope_grid(depth_image,depth_intrinsics):
-    cell_height = depth_image.shape[0] / 8
-    cell_width = depth_image.shape[1] / 8
+    cell_height = int(depth_image.shape[0] // 8)
+    cell_width = int(depth_image.shape[1] // 8)
     print(f"cell height {cell_height}")
     print(f"cell width {cell_width}")
-    depth_grid = scipy.sparse.bsr_matrix(depth_image, blocksize=(cell_height, cell_width)).data
+    depth_grid = scipy.sparse.bsr_matrix(depth_image, blocksize=(cell_height, cell_width), dtype=np.float32).data
     np_grid = np.asanyarray(depth_grid)
     i = 0
     j = 0
@@ -85,7 +85,7 @@ def testing():
     print(num_zeros)
     start_time = time.time()
 
-    depth_grid = scipy.sparse.bsr_matrix(depth_image, blocksize=(cell_height,cell_width)).data
+    depth_grid = scipy.sparse.bsr_matrix(depth_image, blocksize=(cell_height,cell_width), dtype=np.float32).data
     np_grid = np.asanyarray(depth_grid)
     image_o3d = o3d.geometry.Image(depth_image.astype(np.float32))
     i=0
