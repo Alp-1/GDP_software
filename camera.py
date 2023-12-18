@@ -221,7 +221,8 @@ try:
             print("Obstacle detected! Taking evasive action.")
 
         chosen_angle = navigate_avoiding_obstacles(depth_image,color_image)
-        print(calculate_distance(depth_image,100,100,150,100))
+        print(calculate_distance(depth_image,210,190,250,190))
+        time.sleep(9999999)
 
 except KeyboardInterrupt:
     print("Script terminated by user")
