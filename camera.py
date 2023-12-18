@@ -53,7 +53,7 @@ def initialize_realsense():
     sensor.set_option(rs.option.gain, 85.0)
 
     depth_sensor = profile.get_device().query_sensors()[0]
-    # depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5
+    #depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5
     return pipeline, profile
 
 def apply_filters(depth_frame):
@@ -65,7 +65,7 @@ def apply_filters(depth_frame):
     depth_to_disparity = rs.disparity_transform(True)
     disparity_to_depth = rs.disparity_transform(False)
 
-    # spatial.set_option(rs.option.holes_fill, 3) #try 5??
+    spatial.set_option(rs.option.holes_fill, 5) #try 5??
     frame = depth_frame
     frame = threshold_filter.process(frame)
     frame = decimation.process(frame)
