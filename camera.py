@@ -8,7 +8,7 @@ import pyrealsense2 as rs
 from dronekit import *
 import geometric_map as geo
 
-obstacle_threshold = 1.0
+obstacle_threshold = 0.8
 vegetation_threshold = 0.017
 column_width = 40  # might need adjusting
 # Specify the width of the rover in meters
@@ -84,6 +84,9 @@ def get_new_images():
     color_image = np.asanyarray(color_frame.get_data())
     depth_frame = apply_filters(depth_frame)
     depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
+
+    # num_zeros = np.count_nonzero(depth_image == 0)
+    # print(f"Number of zero values in depth image:{num_zeros}")
     return depth_image,color_image
 
 def is_deadend(depth_image,direction_column):
@@ -227,13 +230,9 @@ try:
     frames = pipeline.wait_for_frames()
     prof = frames.get_profile()
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
-    time.sleep(5)
+    time.sleep(1)
     while True:
-        # deadend_status = False
-        depth_frame = frames.get_depth_frame()
-        color_frame = frames.get_color_frame()
-        color_image = np.asanyarray(color_frame.get_data())
-
+        depth_image,color_image = get_new_images()
         # Display the RGB image
         cv2.imshow('RGB Image from RealSense', color_image)
 
@@ -241,25 +240,11 @@ try:
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-
-        if not depth_frame:
-            print("problems")
-            continue
-
-        start_time = time.time()
-        depth_frame = apply_filters(depth_frame)
-        print("Post processing filters: --- %s seconds ---" % (time.time() - start_time))
-
-        depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
-        print(depth_image.shape)
-        num_zeros = np.count_nonzero(depth_image == 0)
-        print(f"Number of zero values in depth image:{num_zeros}")
-
         distance = distance_to_obstacle(depth_image)
         if distance < obstacle_threshold:
             print("Obstacle detected! Taking evasive action.")
 
-        print(calculate_distance(depth_image,200,150,215,150))
+        # print(calculate_distance(depth_image,200,150,215,150))
         chosen_angle = navigate_avoiding_obstacles(depth_image,color_image)
 
         time.sleep(9999999)
