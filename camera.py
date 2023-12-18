@@ -59,6 +59,7 @@ def initialize_realsense():
 def apply_filters(depth_frame):
     decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
+    spatial.set_option(rs.option.holes_fill,5) #do I still need hole filling???
     hole_filling = rs.hole_filling_filter(2) #use min of neighbour cells,might need changing
     threshold_filter = rs.threshold_filter(0.3, 16)
     depth_to_disparity = rs.disparity_transform(True)
@@ -161,6 +162,26 @@ def distance_to_obstacle(depth_image):
     min_value_without_zeros = np.min(masked_array)
     return min_value_without_zeros
 
+# code from https://github.com/soarwing52/RealsensePython/blob/master/separate%20functions/measure_new.py
+def calculate_distance(depth_image,x1,y1,x2,y2):
+    # udist = depth_frame.get_distance(x1, y1)
+    # vdist = depth_frame.get_distance(x2, y2)
+    udist = depth_image[y1,x1]
+    vdist = depth_image[y2,x2]
+    print (udist)
+    print (vdist)
+
+    point1 = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [x1, y1], udist)
+    point2 = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [x2, y2], vdist)
+    print(point1)
+    print(point2)
+    # euclidean distance between two points, measured in meters
+    dist = math.sqrt(
+        math.pow(point1[0] - point2[0], 2) + math.pow(point1[1] - point2[1], 2) + math.pow(
+            point1[2] - point2[2], 2))
+    # result[0]: right, result[1]: down, result[2]: forward
+    return dist
+
 
 # Main execution loop
 try:
@@ -200,7 +221,7 @@ try:
             print("Obstacle detected! Taking evasive action.")
 
         chosen_angle = navigate_avoiding_obstacles(depth_image,color_image)
-
+        print(calculate_distance(depth_image,100,100,150,100))
 
 except KeyboardInterrupt:
     print("Script terminated by user")

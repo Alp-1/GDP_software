@@ -118,6 +118,7 @@ def initialize_realsense():
 def apply_filters(depth_frame):
     decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
+    spatial.set_option(rs.option.holes_fill,5) #do I still need hole filling???
     hole_filling = rs.hole_filling_filter(2) #use min of neighbour cells,might need changing
     threshold_filter = rs.threshold_filter(0.3, 16)
     depth_to_disparity = rs.disparity_transform(True)
