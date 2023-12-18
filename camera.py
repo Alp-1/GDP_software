@@ -87,9 +87,10 @@ def get_new_images():
     return depth_image,color_image
 
 def is_deadend(depth_image,direction_column):
-    square_height = depth_image.shape[0] // 4
+    square_height = depth_image.shape[0] // 6
     square_width = column_width
     start_row = (depth_image.shape[0] - square_height) // 2
+    print(f"start_row:{start_row}")
     start_col = direction_column - (square_width // 2)
 
     square = depth_image[start_row:start_row + square_height, start_col:start_col + square_width]
@@ -149,7 +150,7 @@ def navigate_avoiding_obstacles(depth_image,color_image):
 def distance_to_obstacle(depth_image):
     # Calculate the size of the central square
     central_width = depth_image.shape[1] // 3
-    central_height = depth_image.shape[0] // 4
+    central_height = depth_image.shape[0] // 6 #using 1/6 height instead of 1/4 to avoid ground
 
     # Calculate the starting indices for the central square
     start_row = (depth_image.shape[0] - central_height) // 2
