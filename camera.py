@@ -167,7 +167,7 @@ def distance_to_obstacle(depth_image):
     print(f"middle patch:\n")
     print(masked_array)
     print(min_value_without_zeros)
-    
+
     return min_value_without_zeros
 
 # code from https://github.com/soarwing52/RealsensePython/blob/master/separate%20functions/measure_new.py
@@ -232,6 +232,15 @@ try:
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
         color_image = np.asanyarray(color_frame.get_data())
+
+        # Display the RGB image
+        cv2.imshow('RGB Image from RealSense', color_image)
+
+        # Break the loop if 'q' key is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+
         if not depth_frame:
             print("problems")
             continue
