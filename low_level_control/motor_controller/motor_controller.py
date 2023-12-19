@@ -345,9 +345,13 @@ class MotorController:
                 self.send_currents()
                 self.send_encoders()
                 prev_sensor_time = time.ticks_ms()
+
             if self.central_hub_interface.any() != 0:
                 command = self.central_hub_interface.read()
                 self.execute_command(command)
+            else:
+                # Try to parse the remaining data in the buffer
+                self.execute_command(b"")
 
             if self.current_mode == self.MIXED:
                 self.drive(self.left_speed_command, 0, self.turn)
