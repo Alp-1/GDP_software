@@ -387,6 +387,7 @@ class MotorController:
         """
         self.pid_left.reset()
         self.pid_right.reset()
+        self.current_mode = self.INDEPENDENT_MOTOR
         last_time = time.ticks_ms()
         self.set_pid_setpoint(self.pid_left, left_target_speed)
         self.set_pid_setpoint(self.pid_right, right_target_speed)
@@ -403,6 +404,11 @@ class MotorController:
                     )
                 )
                 print("Last error at iteration {}: {}".format(iteration, last_error))
+                print(
+                    "Drive: {:.2f} {:.2f}".format(
+                        self.left_speed_command, self.right_speed_command
+                    )
+                )
                 if rpm_error_threshold > 0 and all(
                     abs(error) < rpm_error_threshold
                     for error in last_error
