@@ -11,12 +11,12 @@ from user_interface.led import OnBoardLED
 LEFT_MOTOR_ID = 2
 LEFT_MOTOR_ENCODER_PIN = 12
 LEFT_MOTOR_SM = 0
-LEFT_MOTOR_CURRENT_PIN = 2
+LEFT_MOTOR_CURRENT_PIN = 1
 
 RIGHT_MOTOR_ID = 1
 RIGHT_MOTOR_ENCODER_PIN = 14
 RIGHT_MOTOR_SM = 1
-RIGHT_MOTOR_CURRENT_PIN = 1
+RIGHT_MOTOR_CURRENT_PIN = 2
 
 CENTRAL_HUB_TX_PIN = 4
 CENTRAL_HUB_RX_PIN = 5
@@ -77,6 +77,7 @@ class MotorController:
                 LEFT_MOTOR_ENCODER_PIN,
                 LEFT_MOTOR_SM,
                 LEFT_MOTOR_CURRENT_PIN,
+                invert_current=True,
             )
             if left_motor is None
             else left_motor
@@ -86,6 +87,7 @@ class MotorController:
                 RIGHT_MOTOR_ENCODER_PIN,
                 RIGHT_MOTOR_SM,
                 RIGHT_MOTOR_CURRENT_PIN,
+                invert_current=True,
             )
             if right_motor is None
             else right_motor
