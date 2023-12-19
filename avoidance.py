@@ -17,7 +17,7 @@ vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 
 obstacle_threshold = 0.8
 vegetation_threshold = 0.017
-column_width = 40  # might need adjusting
+column_width = 30  # might need adjusting
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
 folder_name = ""
@@ -261,8 +261,8 @@ def detect_tall_vegetation(depth_image):
 
 def gap_size(depth_image, column):
     gap_threshold = 0.3
-    # start_row = depth_image.shape[0] // 2
-    start_row = 150
+    start_row = depth_image.shape[0] // 2
+    # start_row = 150
     width_left = column
     width_right = column
     while width_left > 1:
