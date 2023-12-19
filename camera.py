@@ -171,13 +171,13 @@ def distance_to_obstacle(depth_image):
     min_value_without_zeros = np.min(masked_array)
 
     print(f"middle patch:\n")
-    print(masked_array)
+    
     print(min_value_without_zeros)
 
     return min_value_without_zeros
 
 # code from https://github.com/soarwing52/RealsensePython/blob/master/separate%20functions/measure_new.py
-def calculate_distance(depth_image,x1,y1,x2,y2):
+def calculate_distance(depth_image,y1,x1,y2,x2):
     # udist = depth_frame.get_distance(x1, y1)
     # vdist = depth_frame.get_distance(x2, y2)
     udist = depth_image[y1,x1]
@@ -186,8 +186,8 @@ def calculate_distance(depth_image,x1,y1,x2,y2):
     print (udist)
     print (vdist)
 
-    point1 = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [x1, y1], udist)
-    point2 = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [x2, y2], vdist)
+    point1 = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [y1, x1], udist)
+    point2 = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [y2, x2], vdist)
     print(point1)
     print(point2)
     # euclidean distance between two points, measured in meters
@@ -198,8 +198,9 @@ def calculate_distance(depth_image,x1,y1,x2,y2):
     return dist
 
 def gap_size(depth_image,column):
-    gap_threshold = 0.3
-    start_row = depth_image.shape[0] // 2
+    gap_threshold = 0.2
+    # start_row = depth_image.shape[0] // 2
+    start_row = 150
     width_left = column
     width_right = column
     while width_left > 1:
@@ -222,10 +223,12 @@ def gap_size(depth_image,column):
             break
         else:
             height_up -= 1
-
-    gap_width = calculate_distance(depth_image,width_left,start_row,width_right,start_row)
+    
+    
+    gap_width = calculate_distance(depth_image,start_row,width_left,start_row,width_right)
     gap_height = calculate_distance(depth_image,start_row,column,height_up,column)
-
+    print(f"GAP: {gap_height} {gap_width}")
+    print(f"{width_left} {width_right}")
     return gap_height,gap_width
 
 
@@ -261,6 +264,7 @@ try:
 
         # print(calculate_distance(depth_image,200,150,215,150))
         # chosen_angle = navigate_avoiding_obstacles(depth_image,color_image)
+        print("GAP")
         print(gap_size(depth_image,249))
         time.sleep(5)
 
