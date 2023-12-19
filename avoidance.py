@@ -136,6 +136,7 @@ def apply_filters(depth_frame):
     return frame
 
 def get_new_images():
+    frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
     color_frame = frames.get_color_frame()
     if not depth_frame or not color_frame:
@@ -144,6 +145,9 @@ def get_new_images():
     color_image = np.asanyarray(color_frame.get_data())
     depth_frame = apply_filters(depth_frame)
     depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
+
+    # num_zeros = np.count_nonzero(depth_image == 0)
+    # print(f"Number of zero values in depth image:{num_zeros}")
     return depth_image,color_image
 
 def is_deadend(depth_image,direction_column):
@@ -286,7 +290,7 @@ def movement_commands(angle):
     time.sleep(1)
     mavlink_velocity(0.7, 0, 0)
     print("going forward")
-    time.sleep(1)
+    # time.sleep(1) the rover should only go forward blindly until the next image is processed
 
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(depth_image,color_image):
@@ -336,20 +340,7 @@ try:
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
     while True:
         # deadend_status = False
-        depth_frame = frames.get_depth_frame()
-        color_frame = frames.get_color_frame()
-        color_image = np.asanyarray(color_frame.get_data())
-        if not depth_frame:
-            print("problems")
-            continue
-
-        start_time = time.time()
-        depth_frame = apply_filters(depth_frame)
-        print("Post processing filters: --- %s seconds ---" % (time.time() - start_time))
-
-        depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
-        num_zeros = np.count_nonzero(depth_image == 0)
-        print(f"Number of zero values in depth image:{num_zeros}")
+        depth_image,color_image = get_new_images()
 
         distance = distance_to_obstacle(depth_image)
         if distance < obstacle_threshold:

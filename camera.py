@@ -76,8 +76,10 @@ def apply_filters(depth_frame):
     return frame
 
 def get_new_images():
+    frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
     color_frame = frames.get_color_frame()
+    frames.get_frame_metadata(rs.frame_metadata_value.frame_timestamp)
     if not depth_frame or not color_frame:
         print("problems")
 
@@ -247,7 +249,7 @@ try:
         # print(calculate_distance(depth_image,200,150,215,150))
         chosen_angle = navigate_avoiding_obstacles(depth_image,color_image)
 
-        time.sleep(9999999)
+        time.sleep(5)
 
 except KeyboardInterrupt:
     print("Script terminated by user")
