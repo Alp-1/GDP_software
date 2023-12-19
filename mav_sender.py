@@ -1,5 +1,9 @@
 import time
-from pymavlink import mavutil
+
+# 50.937472 -1.39575
+FAKE_LONGITUDE = -1.39575
+FAKE_LATITUDE = 50.937472
+FAKE_ALTITUDE = 0.0
 
 def get_gps_time(tnow):
     '''return gps_week and gps_week_ms for current unix time in seconds'''
@@ -15,7 +19,7 @@ def get_gps_time(tnow):
     return week, week_ms
 
 
-def send_fake_gps(mavlink_connection, lat, lon, alt):
+def send_fake_gps(mavlink_connection, lat=FAKE_LATITUDE, lon=FAKE_LONGITUDE, alt=FAKE_ALTITUDE):
     """Send a fake GPS message to test the vehicle in GUIDED mode indoors"""
     
     now = time.time()
