@@ -21,41 +21,31 @@ column_width = 30  # might need adjusting
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
 folder_name = ""
-# deadend_status = False
+
 
 def create_folder(folder_name):
     # Create a folder if it doesn't exist
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
 
-def save_data_to_txt(slope_grid, distance, angle, status, height, width, current_time):
+
+def save_data_to_txt(distance, slope_grid, angle, status, height, width, current_time):
     # Save data to a text file
 
     filename_data = os.path.join(folder_name, f"{current_time}_data.txt")
     with open(filename_data, 'w') as file:
+        file.write(f"Distance to obstacle:{distance}\n")
         file.write(f"Slope Grid:\n")
         file.write(f"{slope_grid}\n")
-        file.write(f"Distance: {distance}\n")
         file.write(f"Angle: {angle}\n")
         file.write(f"It's a deadend: {status}\n")
         file.write(f"gap height: {height}\n")
         file.write(f"gap width: {width}\n")
 
+
 def save_rgb_image(image,current_time):
     filename_image = os.path.join(folder_name, f"{current_time}_image.png")
     cv2.imwrite(filename_image, image)
-
-def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
-    mavlink_connection.mav.set_position_target_local_ned_send(
-        0,  # time_boot_ms (not used)
-        mavlink_connection.target_system,  # target system
-        mavlink_connection.target_component,  # target component
-        mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
-        0b100111100111,  # type_mask (only speeds enabled)
-        0, 0, 0,  # x, y, z positions (not used)
-        velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
-        0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
-        math.radians(yaw), 0)  # yaw, yaw_rate
 
 
 def mavlink_turn(velocity_x, velocity_y, velocity_z, yaw):
@@ -73,6 +63,7 @@ def mavlink_turn(velocity_x, velocity_y, velocity_z, yaw):
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         math.radians(yaw), 0)  # yaw, yaw_rate
 
+
 def mavlink_velocity(velocity_x, velocity_y, velocity_z):
     mavlink_connection.mav.set_position_target_local_ned_send(
         0,  # time_boot_ms (not used)
@@ -87,11 +78,13 @@ def mavlink_velocity(velocity_x, velocity_y, velocity_z):
 
     print("sexy")
 
+
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
     print("Heartbeat received")
     print("Base Mode: {}".format(message.base_mode))
     print("Custom Mode: {}".format(message.custom_mode))
+
 
 # Global variable for the RealSense profile
 profile = None
@@ -129,6 +122,7 @@ def initialize_realsense():
     # depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5. doesn't work rn, maybe because of no advanced mode on pi?
     return pipeline, profile
 
+
 def apply_filters(depth_frame):
     decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
@@ -148,6 +142,7 @@ def apply_filters(depth_frame):
     frame = hole_filling.process(frame)
     return frame
 
+
 def get_new_images():
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
@@ -162,6 +157,7 @@ def get_new_images():
     # num_zeros = np.count_nonzero(depth_image == 0)
     # print(f"Number of zero values in depth image:{num_zeros}")
     return depth_image,color_image
+
 
 def is_deadend(depth_image,direction_column):
     square_height = depth_image.shape[0] // 10
@@ -179,6 +175,7 @@ def is_deadend(depth_image,direction_column):
         return True
     else:
         return False
+
 
 def deadend_protocol():
     mavlink_velocity(0, 0, 0)
@@ -200,6 +197,7 @@ def deadend_protocol():
             print("Alp stuff")
 #             other stuff
 
+
 def distance_to_obstacle(depth_image):
     # Calculate the size of the central square
     central_width = depth_image.shape[1] // 3
@@ -219,6 +217,7 @@ def distance_to_obstacle(depth_image):
     min_value_without_zeros = np.min(masked_array)
     return min_value_without_zeros
 
+
 def calculate_distance(depth_image,y1,x1,y2,x2):
     # udist = depth_frame.get_distance(x1, y1)
     # vdist = depth_frame.get_distance(x2, y2)
@@ -235,6 +234,7 @@ def calculate_distance(depth_image,y1,x1,y2,x2):
     # result[0]: right, result[1]: down, result[2]: forward
     return dist
 
+
 def clearest_path(depth_image):
     # Calculate the rolling mean for consecutive columns
     rolling_means = np.convolve(depth_image.mean(axis=0), np.ones(column_width) / column_width, mode='valid')
@@ -247,6 +247,7 @@ def clearest_path(depth_image):
 
     return middle_index
 
+
 # Function to find a clear path and calculate its direction
 def find_clear_path_and_calculate_direction(depth_image, rover_width):
 
@@ -256,6 +257,7 @@ def find_clear_path_and_calculate_direction(depth_image, rover_width):
     angle = index_of_highest_mean / depth_image.shape[1] * 87 - (87 / 2)
     angle =(angle+360) % 360
     return index_of_highest_mean, angle
+
 
 def detect_tall_vegetation(depth_image):
     """
@@ -310,15 +312,16 @@ def gap_size(depth_image, column):
 
 def movement_commands(angle):
     print(angle)
-    mavlink_turn_and_go(0.3, 0, 0, angle)
+    mavlink_turn(0, 0, 0, angle)
     print("turning")
     time.sleep(1)
     mavlink_velocity(0.7, 0, 0)
     print("going forward")
-    # time.sleep(0.3) #the rover should only go forward blindly until the next image is processed
+    time.sleep(0.3) #the rover should only go forward blindly until the next image is processed
+
 
 # Function to navigate while avoiding obstacles
-def navigate_avoiding_obstacles(depth_image,color_image):
+def navigate_avoiding_obstacles(depth_image,color_image,dist):
     print(vehicle.mode.name)
     deadend_status = False
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
@@ -335,15 +338,26 @@ def navigate_avoiding_obstacles(depth_image,color_image):
         print("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
 
         gap_height,gap_width = gap_size(depth_image, column_index)
-        save_data_to_txt(slope_grid, distance, angle, deadend_status, gap_height,gap_width, current_time)
+        save_data_to_txt(dist,slope_grid, angle, deadend_status, gap_height,gap_width, current_time)
         save_rgb_image(color_image, current_time)
 
         if deadend_status:
             deadend_protocol()
         else:
             movement_commands(angle)
-        return angle
-    return 0
+
+
+def navigate(depth_image,color_image):
+    if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
+        distance = distance_to_obstacle(depth_image)
+        if distance < obstacle_threshold:
+            print("Obstacle detected! Taking evasive action.")
+            vehicle.mode = VehicleMode("GUIDED")
+            navigate_avoiding_obstacles(depth_image,color_image,distance)
+        else:
+            print("no obstacle ahead")
+            override_rc_channels(1600, 1500, 0, 0)  # Override throttle and steering channels
+            vehicle.mode = VehicleMode("AUTO")
 
 
 # Main execution loop
@@ -364,21 +378,14 @@ try:
     prof = frames.get_profile()
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
     while True:
-        # deadend_status = False
         depth_image,color_image = get_new_images()
-
-        distance = distance_to_obstacle(depth_image)
-        if distance < obstacle_threshold:
-            print("Obstacle detected! Taking evasive action.")
-
-        chosen_angle = navigate_avoiding_obstacles(depth_image,color_image)
+        navigate(depth_image,color_image)
 
 
 except KeyboardInterrupt:
     print("Script terminated by user")
 
 finally:
-    # clear_rc_overrides()
     pipeline.stop()
     cv2.destroyAllWindows()
     vehicle.close()
