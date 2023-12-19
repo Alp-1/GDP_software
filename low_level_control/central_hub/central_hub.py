@@ -39,9 +39,9 @@ class CentralHub:
     MOTOR_STATE_SELECTOR = RCReceiver.CHANNEL_7
 
     # Whether to reverse the channel input (Depends on the hardware wiring)
-    REVERSE_THROTTLE = False
-    REVERSE_RUDDER = True
-    REVERSE_SERVO = True  # Used in Indepedent mode
+    REVERSE_THROTTLE = True
+    REVERSE_RUDDER = False
+    REVERSE_SERVO = False  # Use in Indepedent mode
 
     # Some common commands for the motor controller
     STOP_COMMAND = Commands.generate_command((Commands.SET_SPEED_LEFT_RIGHT, (0, 0)))
@@ -54,6 +54,12 @@ class CentralHub:
     # The number of missing messages before resetting the state machine
     #  (This is to prevent the SoftUART state machine from getting stuck)
     SOFT_UART_RESET_COUNT = 50
+
+    RC_FILTER_WINDOW_SIZE = 3
+    # Each PPM packet is 20ms (Standard RC receiver)
+    RC_FILTER_TIME_MS = 20
+
+    RC_TIMEOUT_MS = 3000
 
     def __init__(
         self,
@@ -91,7 +97,7 @@ class CentralHub:
             self.controllers = controllers
 
         if rc_receiver is None:
-            self.rc_receiver = RCReceiver(8)
+            self.rc_receiver = RCReceiver(8, rc_timeout_ms=self.RC_TIMEOUT_MS)
         else:
             self.rc_receiver = rc_receiver
 
@@ -216,12 +222,27 @@ class CentralHub:
     async def update_state(self):
         """Constantly checking the state of the system on the state selector switch"""
         while True:
-            # Only update the state if the state selector switch is changed
             if self.state != self.state_selector:
+                # Only update the state if the state selector switch is changed
                 self.state = self.state_selector
                 if self.armed:
                     self.state_action()
             await asyncio.sleep_ms(self.E_STOP_CHECK_PERIOD_MS)
+
+    def average_filter(self, window_size, data_fn, *args):
+        """Average filter for the data_fn that returns a fixed number of values"""
+        avg = data_fn(*args)
+        if not isinstance(avg, list):
+            num_values = 1
+        else:
+            num_values = len(avg)
+        for _ in range(window_size):
+            if num_values == 1:
+                avg += data_fn(*args)
+            else:
+                avg = [avg[i] + data_fn(*args)[i] for i in range(num_values)]
+            time.sleep_ms(self.RC_FILTER_TIME_MS)
+        return [x / window_size for x in avg] if num_values > 1 else avg / window_size
 
     def send_command(self):
         """This method reads from the receiver and sends the
@@ -233,13 +254,13 @@ class CentralHub:
             return
 
         if self.current_mode == self.DIRECT_RC:
-            speed = self.rc_receiver.channel_data(self.THROTTLE) * (
-                -1 if self.REVERSE_THROTTLE else 1
-            )
-            turn = self.rc_receiver.channel_data(self.RUDDER) * (
-                -1 if self.REVERSE_RUDDER else 1
-            )
-            print(self.current_mode, speed, turn)
+            speed = self.average_filter(
+                self.RC_FILTER_WINDOW_SIZE, self.rc_receiver.channel_data, self.THROTTLE
+            ) * (-1 if self.REVERSE_THROTTLE else 1)
+            turn = self.average_filter(
+                self.RC_FILTER_WINDOW_SIZE, self.rc_receiver.channel_data, self.RUDDER
+            ) * (-1 if self.REVERSE_RUDDER else 1)
+            print("Mode: Direct RC, Speed: {:.2f}, Turn: {:.2f}".format(speed, turn))
             command = Commands.generate_command(
                 (Commands.SET_SPEED_MIXED, (speed, turn))
             )
@@ -259,7 +280,7 @@ class CentralHub:
             command_rear = Commands.generate_command(
                 (Commands.SET_SPEED_LEFT_RIGHT, (command[2], command[3]))
             )
-            print(self.current_mode, command[0], command[1])
+            print("Mode: FC, Speed: {:.2f}, {:.2f}".format(command[0], command[1]))
             self.controllers["front"].write(command_front)
             self.controllers["rear"].write(command_rear)
 
@@ -287,6 +308,7 @@ class CentralHub:
             # prevents unwanted movement when the switch is not
             # in the disabled state when starting.
         self.armed = True
+        OnBoardLED.set_period_ms(500)  # Exits the pre-arm check
         while True:
             if self.state == self.RUNNING:
                 self.update_mode()
