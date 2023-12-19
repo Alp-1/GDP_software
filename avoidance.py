@@ -151,7 +151,7 @@ def get_new_images():
     return depth_image,color_image
 
 def is_deadend(depth_image,direction_column):
-    square_height = depth_image.shape[0] // 6
+    square_height = depth_image.shape[0] // 8
     square_width = column_width
     start_row = (depth_image.shape[0] - square_height) // 2
     start_col = direction_column - (square_width // 2)
@@ -190,7 +190,7 @@ def deadend_protocol():
 def distance_to_obstacle(depth_image):
     # Calculate the size of the central square
     central_width = depth_image.shape[1] // 3
-    central_height = depth_image.shape[0] // 6
+    central_height = depth_image.shape[0] // 8
 
     # Calculate the starting indices for the central square
     start_row = (depth_image.shape[0] - central_height) // 2
