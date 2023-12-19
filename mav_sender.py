@@ -1,21 +1,33 @@
 import time
 from pymavlink import mavutil
 
+def get_gps_time(tnow):
+    '''return gps_week and gps_week_ms for current unix time in seconds'''
+    leapseconds = 18
+    SEC_PER_WEEK = 7 * 86400
+    UNIX_TO_GPS_EPOCH = 315964800
+
+    epoch = UNIX_TO_GPS_EPOCH - leapseconds
+    epoch_seconds = int(tnow - epoch)
+    week = int(epoch_seconds) // SEC_PER_WEEK
+    t_ms = int(tnow * 1000) % 1000
+    week_ms = (epoch_seconds % SEC_PER_WEEK) * 1000 + ((t_ms//200) * 200)
+    return week, week_ms
 
 
 def send_fake_gps(mavlink_connection, lat, lon, alt):
     """Send a fake GPS message to test the vehicle in GUIDED mode indoors"""
-    now_us = int(time.time() * 1000000)
+    
+    now = time.time()
+    gps_week, gps_week_ms = get_gps_time(now)
+    nsats = 12
+    fix_type = 3
+    time_us = int(now * 1e6)
 
-    mavlink_connection.mav.gps_raw_int_send(
-        now_us,  # time_usec                 : Timestamp (microseconds since UNIX epoch or microseconds since system boot) (uint64_t)
-        3,  # fix_type                  : See the GPS_FIX_TYPE enum. (uint8_t)
-        int(lat * 1e7),  # lat                       : Latitude (WGS84), in degrees * 1E7 (int32_t)
-        int(lon * 1e7),  # lon                       : Longitude (WGS84), in degrees * 1E7 (int32_t)
-        int(alt * 1000),  # alt                       : Altitude (AMSL, NOT WGS84), in meters * 1000 (positive for up). Note that virtually all GPS modules provide the AMSL altitude in addition to the WGS84 altitude. (int32_t)
-        0,  # eph                       : GPS HDOP horizontal dilution of position (unitless). If unknown, set to: UINT16_MAX (uint16_t)
-        0,  # epv                       : GPS VDOP vertical dilution of position (unitless). If unknown, set to: UINT16_MAX (uint16_t)
-        0,  # vel                       : GPS ground speed (m/s * 100). If unknown, set to: UINT16_MAX (uint16_t)
-        0,  # cog                       : Course over ground (NOT heading, but direction of movement) in degrees * 100, 0.0..359.99 degrees. If unknown, set to: UINT16_MAX (uint16_t)
-        12  # satellites_visible        : Number of satellites visible. If unknown, set to 255 (uint8_t)
-    )
+    mavlink_connection.mav.gps_input_send(time_us, 0, 0, gps_week_ms, gps_week, fix_type,
+                                       int(lat*1.0e7), int(lon*1.0e7), alt,
+                                       1.0, 1.0,
+                                       0, 0, 0,
+                                       0.2, 1.0, 1.0,
+                                       nsats,
+                                       0)
