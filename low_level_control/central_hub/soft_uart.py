@@ -106,8 +106,7 @@ class SoftUART:
 
     def write(self, byte_buffer):
         """Write a buffer of bytes to the UART."""
-        for b in byte_buffer:
-            self.sm_tx.put(b)
+        self.sm_tx.put(byte_buffer)
 
     def read(self):
         """Read stored data from the UART."""

@@ -1,4 +1,3 @@
-import time
 from machine import Pin, ADC
 
 from motor_controller.encoder import Encoder
@@ -14,7 +13,7 @@ class MotorSensing:
         encoder_out_A: int,
         sm_no: int,
         adc_in: int,
-        current_fault: int = None,
+        invert_current: bool = False,
     ):
         """Initialize the motor.
 
@@ -27,19 +26,17 @@ class MotorSensing:
             The state machine number to use for the encoder pio
         adc_in: int
             The ADC pin to use for current sensing
-        current_fault: int
-            The pin connected to the active low current fault pin of
-            ACS711EX
+        invert_current: bool
+            Set to True if the current sensor is inverted
 
         """
         # Define the pins for the inputs
         ENCODER_OUT_A = Pin(encoder_out_A, Pin.IN, Pin.PULL_DOWN)
         self.encoder = Encoder(sm_no, ENCODER_OUT_A)
         self.current_sensor = ADC(adc_in)
-        if current_fault is not None:
-            self.fault_current = Pin(current_fault, Pin.IN, Pin.PULL_UP)
+        self.invert_current = invert_current
 
-        self.no_of_samples = 256
+        self.no_of_samples = 256 * 4
         self.offset_u16 = 0
         self.calibrate_adc()
 
@@ -75,4 +72,6 @@ class MotorSensing:
             average_u16 += self.current_sensor.read_u16()
         average_u16 /= self.no_of_samples
         vout = (average_u16 - self.offset_u16) * 3.3 / 65535
+        if self.invert_current:
+            vout = -vout
         return vout / 0.045

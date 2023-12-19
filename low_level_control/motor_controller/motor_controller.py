@@ -8,15 +8,15 @@ from motor_controller.pid import PID
 from protocol import Commands
 from user_interface.led import OnBoardLED
 
-LEFT_MOTOR_ID = 1
+LEFT_MOTOR_ID = 2
 LEFT_MOTOR_ENCODER_PIN = 12
 LEFT_MOTOR_SM = 0
-LEFT_MOTOR_CURRENT_PIN = 2
+LEFT_MOTOR_CURRENT_PIN = 1
 
-RIGHT_MOTOR_ID = 2
+RIGHT_MOTOR_ID = 1
 RIGHT_MOTOR_ENCODER_PIN = 14
 RIGHT_MOTOR_SM = 1
-RIGHT_MOTOR_CURRENT_PIN = 1
+RIGHT_MOTOR_CURRENT_PIN = 2
 
 CENTRAL_HUB_TX_PIN = 4
 CENTRAL_HUB_RX_PIN = 5
@@ -31,17 +31,21 @@ class MotorController:
     """Controls the motor speed using the signals coming from the central hub"""
 
     THRESHOLD_CURRENT = 15  # Amps
-    OVERCURRENT_TIMEOUT_MS = 1000  # ms
-    PID_PERIOD_MS = 200  # Encoder is 10ms + overhead
+    # Need to be at least twice the encoders' measurement time
+    PID_PERIOD_MS = 200
     MAIN_LOOP_PERIOD_MS = 1
-    SENSOR_UPDATE_PERIOD_MS = 1000  # Update the sensor every 2000ms
+    SENSOR_UPDATE_PERIOD_MS = 1000
 
     # Speed setpoint range
     MAX_SPEED_RPM = 165
     MIN_SPEED_RPM = -165
     # The maximum range of the PID controller
     MAX_PID_RANGE = (MIN_SPEED_RPM, MAX_SPEED_RPM)
-    PID_DEADZONE = 10  # Prevent noise from causing the motor to oscillate
+    PID_DEADZONE = 5
+
+    # Attribute to reverse the output of the motor
+    # to compensate for the motor being mounted in reverse
+    REVERSE_OUTPUT = True
 
     MIXED = 0
     INDEPENDENT_MOTOR = 1
@@ -73,6 +77,7 @@ class MotorController:
                 LEFT_MOTOR_ENCODER_PIN,
                 LEFT_MOTOR_SM,
                 LEFT_MOTOR_CURRENT_PIN,
+                invert_current=True,
             )
             if left_motor is None
             else left_motor
@@ -82,6 +87,7 @@ class MotorController:
                 RIGHT_MOTOR_ENCODER_PIN,
                 RIGHT_MOTOR_SM,
                 RIGHT_MOTOR_CURRENT_PIN,
+                invert_current=True,
             )
             if right_motor is None
             else right_motor
@@ -147,6 +153,10 @@ class MotorController:
             using only values from left_speed and turn, i.e. the
             right_speed value will be ignored. (Assume this only happens in RC mode)
         """
+        if self.REVERSE_OUTPUT:
+            left_speed = -left_speed
+            right_speed = -right_speed
+            turn = -turn if turn is not None else None
 
         if turn is not None:
             left_speed = self.convert(
@@ -337,9 +347,13 @@ class MotorController:
                 self.send_currents()
                 self.send_encoders()
                 prev_sensor_time = time.ticks_ms()
+
             if self.central_hub_interface.any() != 0:
                 command = self.central_hub_interface.read()
                 self.execute_command(command)
+            else:
+                # Try to parse the remaining data in the buffer
+                self.execute_command(b"")
 
             if self.current_mode == self.MIXED:
                 self.drive(self.left_speed_command, 0, self.turn)
@@ -355,9 +369,9 @@ class MotorController:
         left_input_rpm = 0
         right_input_rpm = 0
         if self.pid_left.auto_mode:
-            left_input_rpm = self.pid_left(current_speed[0], dt=self.PID_PERIOD_MS)
+            left_input_rpm = self.pid_left(current_speed[0])
         if self.pid_right.auto_mode:
-            right_input_rpm = self.pid_right(current_speed[1], dt=self.PID_PERIOD_MS)
+            right_input_rpm = self.pid_right(current_speed[1])
         # Clip the speed command to the maximum speed
         self.left_speed_command = self.rpm_to_setpoint(left_input_rpm)
         self.right_speed_command = self.rpm_to_setpoint(right_input_rpm)
@@ -375,6 +389,7 @@ class MotorController:
         """
         self.pid_left.reset()
         self.pid_right.reset()
+        self.current_mode = self.INDEPENDENT_MOTOR
         last_time = time.ticks_ms()
         self.set_pid_setpoint(self.pid_left, left_target_speed)
         self.set_pid_setpoint(self.pid_right, right_target_speed)
@@ -391,6 +406,11 @@ class MotorController:
                     )
                 )
                 print("Last error at iteration {}: {}".format(iteration, last_error))
+                print(
+                    "Drive: {:.2f} {:.2f}".format(
+                        self.left_speed_command, self.right_speed_command
+                    )
+                )
                 if rpm_error_threshold > 0 and all(
                     abs(error) < rpm_error_threshold
                     for error in last_error
