@@ -303,7 +303,7 @@ def movement_commands(angle):
     time.sleep(1)
     mavlink_velocity(0.7, 0, 0)
     print("going forward")
-    # time.sleep(1) the rover should only go forward blindly until the next image is processed
+    time.sleep(0.3) #the rover should only go forward blindly until the next image is processed
 
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(depth_image,color_image):
