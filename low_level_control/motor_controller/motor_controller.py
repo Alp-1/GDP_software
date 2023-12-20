@@ -117,7 +117,6 @@ class MotorController:
         self.mixed_clipped_range = (-100, 100)
 
         self.current_mode = self.MIXED
-        self._previous_turn = 0  # Attribute to detect mode change
 
         self.pid_left = PID(
             Kp=0.25,
@@ -286,7 +285,11 @@ class MotorController:
             # print(command_type, command_value)
             if command_type == Commands.SET_SPEED_MIXED:
                 self.left_speed_command, self.turn = command_value
-                print("Left: {} Turn: {}".format(self.left_speed_command, self.turn))
+                print(
+                    "Left: {:.2f} Turn: {:.2f}".format(
+                        self.left_speed_command, self.turn
+                    )
+                )
                 self.drive(self.left_speed_command, 0, self.turn)
                 self.detect_mode_change()
             elif command_type == Commands.SET_SPEED_LEFT_RIGHT:
@@ -301,7 +304,7 @@ class MotorController:
                     self.pid_right, self.setpoint_to_rpm(self.right_speed_command)
                 )
                 print(
-                    "Left: {} Right: {}".format(
+                    "Left: {:.2f} Right: {:.2f}".format(
                         self.left_speed_command, self.right_speed_command
                     )
                 )
@@ -329,14 +332,13 @@ class MotorController:
 
     def detect_mode_change(self):
         """Allow the class to set the timer period once per mode change"""
-        if self._previous_turn is not None and self.turn is None:
+        if self.current_mode != self.MIXED and self.turn is not None:
             # mode change
             self.current_mode = self.MIXED
             OnBoardLED.set_period_ms(2000)
-        elif self._previous_turn is None and self.turn is not None:
+        elif self.current_mode != self.INDEPENDENT_MOTOR and self.turn is None:
             self.current_mode = self.INDEPENDENT_MOTOR
             OnBoardLED.set_period_ms(1000)
-        self._previous_turn = self.turn
 
     @staticmethod
     def rpm_to_setpoint(rpm):
@@ -400,6 +402,7 @@ class MotorController:
         self.left_speed_command = self.rpm_to_setpoint(left_input_rpm)
         self.right_speed_command = self.rpm_to_setpoint(right_input_rpm)
         self.drive(self.left_speed_command, self.right_speed_command)
+        return self.left_speed_command, self.right_speed_command
 
     def pid_until_stable(
         self,
@@ -422,6 +425,7 @@ class MotorController:
             while time.ticks_diff(time.ticks_ms(), last_time) < timeout:
                 iteration += 1
                 start = time.ticks_us()
+                print("Limits: ", self.overcurrent_protection())
                 self.pid_update()
                 last_error = (self.pid_left._last_error, self.pid_right._last_error)
                 print(
