@@ -7,6 +7,7 @@ import pyrealsense2 as rs
 # from dronekit import connect, VehicleMode, LocationGlobalRelative
 from dronekit import *
 import geometric_map as geo
+import mav_listener
 
 # Connect to the vehicle
 mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)

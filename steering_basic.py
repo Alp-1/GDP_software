@@ -186,8 +186,6 @@ def override_rc_channels(ch1, ch2, ch3, ch4):
 
 
 
-
-
 # Initialize RealSense pipeline and profile
 def initialize_realsense():
     global profile
@@ -199,12 +197,50 @@ def initialize_realsense():
     config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 400)  # Gyroscope data
     profile = pipeline.start(config)
 
-    jsonObj = json.load(open("camera_settings.json"))
-    json_string = str(jsonObj).replace("'", '\"')
-    dev = profile.get_device()
-    # advnc_mode = rs.rs400_advanced_mode(dev)
-    # advnc_mode.load_json(json_string)
+    sensor = profile.get_device().query_sensors()[1]
+    sensor.set_option(rs.option.enable_auto_exposure, False)
+    sensor.set_option(rs.option.exposure, 78.0)
+    sensor.set_option(rs.option.gain, 85.0)
+
+    depth_sensor = profile.get_device().query_sensors()[0]
+    # depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5. doesn't work rn, maybe because of no advanced mode on pi?
     return pipeline, profile
+
+
+def apply_filters(depth_frame):
+    decimation = rs.decimation_filter()
+    spatial = rs.spatial_filter()
+    spatial.set_option(rs.option.holes_fill, 5)  # do I still need hole filling???
+    hole_filling = rs.hole_filling_filter(2)  # use min of neighbour cells,might need changing
+    threshold_filter = rs.threshold_filter(0.3, 16)
+    depth_to_disparity = rs.disparity_transform(True)
+    disparity_to_depth = rs.disparity_transform(False)
+
+    # spatial.set_option(rs.option.holes_fill, 3) #try 5??
+    frame = depth_frame
+    frame = threshold_filter.process(frame)
+    frame = decimation.process(frame)
+    frame = depth_to_disparity.process(frame)
+    frame = spatial.process(frame)
+    frame = disparity_to_depth.process(frame)
+    frame = hole_filling.process(frame)
+    return frame
+
+
+def get_new_images():
+    frames = pipeline.wait_for_frames()
+    depth_frame = frames.get_depth_frame()
+    color_frame = frames.get_color_frame()
+    if not depth_frame or not color_frame:
+        print("problems")
+
+    color_image = np.asanyarray(color_frame.get_data())
+    depth_frame = apply_filters(depth_frame)
+    depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
+
+    # num_zeros = np.count_nonzero(depth_image == 0)
+    # print(f"Number of zero values in depth image:{num_zeros}")
+    return depth_image, color_image
 
 
 # Specify the width of the rover in meters
@@ -270,8 +306,8 @@ def detect_tall_vegetation(depth_image, depth_scale, vegetation_height_threshold
     """
     vegetation_height_threshold = 0.2 
     # Convert depth image to meters
-    depth_in_meters = depth_image * depth_scale
-
+    # depth_in_meters = depth_image * depth_scale
+    depth_in_meters = depth_image
     # Define the region of interest (ROI) in the image
     # For example, you might want to focus on the lower part of the image
     roi_start_row = int(depth_in_meters.shape[0] * 0.5)  # Starting from the middle row
@@ -348,7 +384,7 @@ def detect_collision(mavlink_connection):
     while time.time() - start_time < 5:
         # Retrieve speed data from MAVLink
         current_speed = mav_listener.get_rover_speed(mavlink_connection)  # Speed in cm/s
-        print(current_speed)
+        print(f"speeeed:{current_speed}")
         # Retrieve optical flow data from MAVLink
         optical_flow_data = get_optical_flow_data_from_mavlink()
         print(optical_flow_data)
@@ -386,7 +422,20 @@ def get_optical_flow_data_from_mavlink():
 
 
 
+def is_tall_vegetation(depth_image,speed):
+    percentage_threhsold = 0.6
+    nr_of_pixels = depth_image.size
+    print(nr_of_pixels)
+    percentage = np.count_nonzero(depth_image==0) / nr_of_pixels
+    print(percentage)
+    if percentage>percentage_threhsold  and speed>0.1:
+        return True
+    else:
+        return False
 
+def is_collision():
+    current_speed = mav_listener.get_rover_speed(mavlink_connection)
+    encoder = mav_listener.get_motor_encoder_data()
 
 # Main execution loop
 try:
@@ -398,12 +447,25 @@ try:
     vehicle.armed = True
     # turn_rover(90, relative=True)
     print(vehicle.mode)
-# After turning, stop any further movement
-#     send_ned_yaw_pymavlink(0, 0, 0, 0, 1)
-    send_ned_yaw_pymavlink_once(0,0,0,45)
-    # while True:
-    #     navigate_avoiding_obstacles(depth_scale)
-    #     time.sleep(1)
+    while True:
+        current_speed = mav_listener.get_rover_speed(mavlink_connection)
+        print(current_speed)
+        current_speed /= 100
+        encoder = mav_listener.get_motor_encoder_data(mavlink_connection)
+
+        depth_image,color_image = get_new_images()
+        if is_tall_vegetation(depth_image,current_speed):
+            print("we are in tall vegetation")
+
+        if is_collision(current_speed,encoder):
+            print("collision detected")
+
+        # if both -> go back abit. if only one of the, different
+        # how to interpret encoder data
+        # detect_collision(mavlink_connection)
+        # detect_tall_vegetation(depth_image,depth_scale,0.017)
+
+        time.sleep(0.2)
 except KeyboardInterrupt:
     print("Script terminated by user")
 
