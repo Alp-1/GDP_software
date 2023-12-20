@@ -85,6 +85,12 @@ def get_mav_mode(mavlink_connection):
     return mavutil.mode_string_v10(heartbeat_msg)
 
 
+def get_wheel_distances(mavlink_connection):
+    """Return the rear left and rear right wheel distances in meters"""
+    wheel_distance_msg = wait_for_msg(mavlink_connection, "WHEEL_DISTANCE")
+    return wheel_distance_msg.distance[0], wheel_distance_msg.distance[1]
+
+
 def initialise_mavlink(connection_string="/dev/serial0", baud=57600):
     """Initialise mavlink connection"""
     mavlink_connection = mavutil.mavlink_connection(connection_string, baud=baud)
