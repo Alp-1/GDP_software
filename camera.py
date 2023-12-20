@@ -105,6 +105,7 @@ def is_deadend(depth_image,direction_column):
     # Find the minimum value while excluding masked values (0s)
     min_value_without_zeros = np.min(masked_array)
     print(f"clearest patch:\n")
+    print(square)
     print(masked_array)
     print(min_value_without_zeros)
     if min_value_without_zeros < obstacle_threshold:
@@ -197,39 +198,45 @@ def calculate_distance(depth_image,y1,x1,y2,x2):
     # result[0]: right, result[1]: down, result[2]: forward
     return dist
 
-def gap_size(depth_image,column):
-    gap_threshold = 0.2
-    # start_row = depth_image.shape[0] // 2
-    start_row = 150
+
+def gap_size(depth_image, column):
+    gap_threshold = 0.3
+    start_row = depth_image.shape[0] // 2
     width_left = column
     width_right = column
+    height_up = start_row
+
     while width_left > 1:
-        difference = depth_image[start_row,width_left] - depth_image[start_row,width_left-1]
-        if difference > gap_threshold and depth_image[start_row,width_left-1]<(2*obstacle_threshold) and depth_image[start_row,width_left-1]<depth_image[start_row,column]:
+        difference = depth_image[start_row, width_left] - depth_image[start_row, width_left - 1]
+        if difference > gap_threshold and depth_image[start_row, width_left - 1] < (2 * obstacle_threshold) and \
+                depth_image[start_row, width_left - 1] < depth_image[start_row, column]:
             break
         else:
             width_left -= 1
+    width_left -= 1
+
     while width_right < (depth_image.shape[1] - 2):
-        difference = depth_image[start_row,width_right] - depth_image[start_row,width_right+1]
-        if difference > gap_threshold and depth_image[start_row,width_right+1]<(2*obstacle_threshold) and depth_image[start_row,width_left + 1]<depth_image[start_row,column]:
+        difference = depth_image[start_row, width_right] - depth_image[start_row, width_right + 1]
+        if difference > gap_threshold and depth_image[start_row, width_right + 1] < (2 * obstacle_threshold) and \
+                depth_image[start_row, width_left + 1] < depth_image[start_row, column]:
             break
         else:
             width_right += 1
+    width_right += 1
 
-    height_up = start_row
     while height_up > 1:
-        difference = depth_image[height_up,column] - depth_image[height_up-1,column]
-        if difference > gap_threshold and depth_image[height_up-1,column]<(2*obstacle_threshold) and depth_image[height_up-1,column]<depth_image[start_row,column]:
+        difference = depth_image[height_up, column] - depth_image[height_up - 1, column]
+        if difference > gap_threshold and depth_image[height_up - 1, column] < (2 * obstacle_threshold) and depth_image[
+            height_up - 1, column] < depth_image[start_row, column]:
             break
         else:
             height_up -= 1
-    
-    
-    gap_width = calculate_distance(depth_image,start_row,width_left,start_row,width_right)
-    gap_height = calculate_distance(depth_image,start_row,column,height_up,column)
-    print(f"GAP: {gap_height} {gap_width}")
-    print(f"{width_left} {width_right}")
-    return gap_height,gap_width
+    height_up -= 1
+
+    gap_width = calculate_distance(depth_image, start_row, width_left, start_row, width_right)
+    gap_height = calculate_distance(depth_image, start_row, column, height_up, column)
+    print(f"GAP: height from camera:{gap_height} width:{gap_width}")
+    return gap_height, gap_width
 
 
 # Main execution loop
@@ -263,7 +270,7 @@ try:
             print("Obstacle detected! Taking evasive action.")
 
         # print(calculate_distance(depth_image,200,150,215,150))
-        # chosen_angle = navigate_avoiding_obstacles(depth_image,color_image)
+        chosen_angle = navigate_avoiding_obstacles(depth_image,color_image)
         print("GAP")
         print(gap_size(depth_image,249))
         time.sleep(5)

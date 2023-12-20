@@ -184,7 +184,12 @@ def is_deadend(depth_image, direction_column):
                                       square)  # this might be bad, it also excludes points that are closer than minz
 
     # Find the minimum value while excluding masked values (0s)
+
     min_value_without_zeros = np.min(masked_array)
+    print(f"deadend distance: {min_value_without_zeros}")
+
+    print(square)
+    print(masked_array)
     if min_value_without_zeros < obstacle_threshold:
         return True
     else:
