@@ -374,7 +374,6 @@ def navigate(depth_image,color_image):
             navigate_avoiding_obstacles(depth_image,color_image,distance)
         else:
             print("no obstacle ahead")
-            override_rc_channels(1600, 1500, 0, 0)  # Override throttle and steering channels
             vehicle.mode = VehicleMode("AUTO")
 
 
