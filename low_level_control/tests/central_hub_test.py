@@ -112,6 +112,12 @@ def test_send_command(central_hub, mode, commands, expected_front, expected_rear
     central_hub.update_mode.return_value = None
     central_hub.current_mode = mode
 
+    def average_filter(window_size, data_fn, *args):
+        """Remove the average filter from this test"""
+        return data_fn(*args)
+    central_hub.average_filter = average_filter
+
+
     if mode == CentralHub.DIRECT_RC:
         central_hub.rc_receiver.channel_data.side_effect = commands
     elif mode == CentralHub.FLIGHT_CONTROLLER or mode == CentralHub.FULLY_AUTONOMOUS:

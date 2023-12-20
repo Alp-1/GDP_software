@@ -47,16 +47,27 @@ def test_drive(motor_controller):
     motor_controller.moving_average.side_effect = lambda x: x
 
     motor_controller.drive(1, 2, 3)
-    motor_controller.motor_driver.drive_both.assert_called_once_with(1, 3)
+    if motor_controller.REVERSE_OUTPUT:
+        motor_controller.motor_driver.drive_both.assert_called_once_with(-1, -3)
+    else:
+        motor_controller.motor_driver.drive_both.assert_called_once_with(1, 3)
     assert motor_controller.motor_driver.drive_both.call_count == 1
 
     motor_controller.drive(4, 5)
-    motor_controller.motor_driver.drive.assert_has_calls(
-        [
-            call(motor_controller_module.LEFT_MOTOR_ID, 4),
-            call(motor_controller_module.RIGHT_MOTOR_ID, 5),
-        ]
-    )
+    if motor_controller.REVERSE_OUTPUT:
+        motor_controller.motor_driver.drive.assert_has_calls(
+            [
+                call(motor_controller_module.LEFT_MOTOR_ID, -4),
+                call(motor_controller_module.RIGHT_MOTOR_ID, -5),
+            ]
+        )
+    else:
+        motor_controller.motor_driver.drive.assert_has_calls(
+            [
+                call(motor_controller_module.LEFT_MOTOR_ID, 4),
+                call(motor_controller_module.RIGHT_MOTOR_ID, 5),
+            ]
+        )
 
     assert motor_controller.motor_driver.drive.call_count == 2
 
@@ -145,20 +156,37 @@ def test_rpm_to_setpoint(input_rpm, expected_setpoint):
         1.5,
     ],
 )
+@pytest.mark.parametrize(
+    "prev_range",
+    [
+        200,
+        100,
+        50,
+        20,
+        10,
+        0,
+    ],
+)
+
 def test_current_to_output_map(
     motor_controller,
     current_ratio,
+    prev_range,
 ):
     """Test the over current detection"""
     current = current_ratio * MotorController.THRESHOLD_CURRENT
-    output_range = motor_controller.current_to_output_map(current)
-    if abs(current_ratio) < 0.2:
+    output_range = motor_controller.current_to_output_map(current, prev_range)
+    print(output_range)
+    if abs(current_ratio) < 0.2 and prev_range == 200:
         assert output_range == (-100, 100)
     elif abs(current_ratio) > 1:
         assert output_range == (0, 0)
     else:
-        expected_range = (1 - abs(current_ratio)) * 100
-        assert output_range == (-expected_range, expected_range)
+        expected_range = (1 - abs(current_ratio)) * ((prev_range + 10) * 1.2)/2
+        expected_range = min(expected_range, 100)
+        # Use approx to compare floats
+        assert output_range[0] == pytest.approx(-expected_range)
+        assert output_range[1] == pytest.approx(expected_range)
         
 # @pytest.mark.parametrize(
 #     "motor_id",
