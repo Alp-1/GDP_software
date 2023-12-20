@@ -177,9 +177,6 @@ class CentralHub:
             await mav_bridge.send_name_value_floats(left_current_name, command_payload[0])
             await mav_bridge.send_name_value_floats(right_current_name, command_payload[1])
         # fmt: on
-        elif command_type == Commands.OVERCURRENT:
-            self.state = self.FAULT
-            self.stop_motor()
         else:
             print("Unwanted command type", command_type)
             return False
