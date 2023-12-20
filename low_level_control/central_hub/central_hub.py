@@ -195,9 +195,9 @@ class CentralHub:
                 received = self.controllers["front"].read()
                 parsed = Commands.parse_command(received, 0)
                 if parsed is not None:
-                    print("front_parsed", parsed)
+                    # print("front_parsed", parsed)
                     command_type, response = parsed
-                    self.command_action("front", command_type, response)
+                    await self.command_action("front", command_type, response)
             else:
                 front_miss_count += 1
                 if front_miss_count > self.SOFT_UART_RESET_COUNT:
@@ -208,9 +208,9 @@ class CentralHub:
                 received = self.controllers["rear"].read()
                 parsed = Commands.parse_command(received, 1)
                 if parsed is not None:
-                    print("rear_parsed", parsed)
+                    # print("rear_parsed", parsed)
                     command_type, response = parsed
-                    self.command_action("rear", command_type, response)
+                    await self.command_action("rear", command_type, response)
             else:
                 rear_miss_count += 1
                 if rear_miss_count > self.SOFT_UART_RESET_COUNT:
