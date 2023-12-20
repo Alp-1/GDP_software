@@ -420,22 +420,34 @@ def get_optical_flow_data_from_mavlink():
 # Implement move_back() and find_alternate_path() as needed
 
 
-
-
-def is_tall_vegetation(depth_image,speed):
-    percentage_threhsold = 0.6
-    nr_of_pixels = depth_image.size
-    print(nr_of_pixels)
-    percentage = np.count_nonzero(depth_image==0) / nr_of_pixels
-    print(percentage)
-    if percentage>percentage_threhsold  and speed>0.1:
+def wheels_are_spinning():
+    left_dist1, right_dist1 = mav_listener.get_wheel_distances(mavlink_connection)
+    time.sleep(0.05)
+    left_dist2, right_dist2 = mav_listener.get_wheel_distances(mavlink_connection)
+    left_diff = left_dist2 - left_dist1
+    right_diff = right_dist2 - right_dist1
+    print(f"Wheel distance difference in 50ms: {left_diff} {right_diff}")
+    if left_diff>0.02 or right_diff>0.02:
         return True
     else:
         return False
 
-def is_collision():
-    current_speed = mav_listener.get_rover_speed(mavlink_connection)
-    encoder = mav_listener.get_motor_encoder_data()
+def is_tall_vegetation(depth_image,speed):
+    percentage_threhsold = 0.5
+    nr_of_pixels = depth_image.size
+    print(nr_of_pixels)
+    percentage = np.count_nonzero(depth_image==0) / nr_of_pixels
+    print(f"percentage of pixels with 0 value:{percentage}")
+    if percentage>percentage_threhsold and speed > 0.1:
+        return True
+    else:
+        return False
+
+def is_collision(speed):
+    if speed < 0.05 and wheels_are_spinning():
+        return True
+    else:
+        return False
 
 # Main execution loop
 try:
@@ -449,16 +461,15 @@ try:
     print(vehicle.mode)
     while True:
         current_speed = mav_listener.get_rover_speed(mavlink_connection)
-        print(current_speed)
         current_speed /= 100
-        encoder = mav_listener.get_motor_encoder_data(mavlink_connection)
+        print(f"current speed:{current_speed}")
 
         depth_image,color_image = get_new_images()
         if is_tall_vegetation(depth_image,current_speed):
-            print("we are in tall vegetation")
+            print("TALL VEGETATION")
 
-        if is_collision(current_speed,encoder):
-            print("collision detected")
+        if is_collision(current_speed):
+            print("COLLISION")
 
         # if both -> go back abit. if only one of the, different
         # how to interpret encoder data

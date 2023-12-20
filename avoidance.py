@@ -17,6 +17,7 @@ print("Heartbeat from MAVLink system (system %u component %u)" % (
 vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 
 obstacle_threshold = 1.0
+deadend_threshold = 1.3
 vegetation_threshold = 0.017
 column_width = 30  # might need adjusting
 # Specify the width of the rover in meters
@@ -189,9 +190,7 @@ def is_deadend(depth_image, direction_column):
     min_value_without_zeros = np.min(masked_array)
     print(f"deadend distance: {min_value_without_zeros}")
 
-    print(square)
-    print(masked_array)
-    if min_value_without_zeros < obstacle_threshold:
+    if min_value_without_zeros < deadend_threshold:
         return True
     else:
         return False
@@ -392,7 +391,11 @@ try:
         depth_image, color_image = get_new_images()
 
         distance = distance_to_obstacle(depth_image)
-        if distance < obstacle_threshold:
+        if distance < 0.7 * obstacle_threshold:
+            print("Obstacle is very close! Stopping")
+            mavlink_velocity(0,0,0)
+            time.sleep(0.5)
+        elif distance < obstacle_threshold:
             print("Obstacle detected! Taking evasive action.")
 
         navigate_avoiding_obstacles(depth_image, color_image)
