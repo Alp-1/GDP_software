@@ -47,16 +47,27 @@ def test_drive(motor_controller):
     motor_controller.moving_average.side_effect = lambda x: x
 
     motor_controller.drive(1, 2, 3)
-    motor_controller.motor_driver.drive_both.assert_called_once_with(1, 3)
+    if motor_controller.REVERSE_OUTPUT:
+        motor_controller.motor_driver.drive_both.assert_called_once_with(-1, -3)
+    else:
+        motor_controller.motor_driver.drive_both.assert_called_once_with(1, 3)
     assert motor_controller.motor_driver.drive_both.call_count == 1
 
     motor_controller.drive(4, 5)
-    motor_controller.motor_driver.drive.assert_has_calls(
-        [
-            call(motor_controller_module.LEFT_MOTOR_ID, 4),
-            call(motor_controller_module.RIGHT_MOTOR_ID, 5),
-        ]
-    )
+    if motor_controller.REVERSE_OUTPUT:
+        motor_controller.motor_driver.drive.assert_has_calls(
+            [
+                call(motor_controller_module.LEFT_MOTOR_ID, -4),
+                call(motor_controller_module.RIGHT_MOTOR_ID, -5),
+            ]
+        )
+    else:
+        motor_controller.motor_driver.drive.assert_has_calls(
+            [
+                call(motor_controller_module.LEFT_MOTOR_ID, 4),
+                call(motor_controller_module.RIGHT_MOTOR_ID, 5),
+            ]
+        )
 
     assert motor_controller.motor_driver.drive.call_count == 2
 
@@ -78,12 +89,10 @@ def test_drive(motor_controller):
         ),  # Too long
     ],
 )
-@pytest.mark.parametrize("initial_enabled", [True, False])
 def test_execute_command(
     motor_controller: MotorController,
     command_type,
     command_payload,
-    initial_enabled,
 ):
     """Test the execute_command method"""
 
@@ -93,7 +102,6 @@ def test_execute_command(
     motor_controller.pid_right = Mock()
     motor_controller.pid_update = Mock()
     motor_controller.rpm_to_setpoint = Mock()
-    motor_controller.ENABLED = initial_enabled
 
     byte_command = (
         Commands.generate_command((command_type, command_payload))
@@ -102,42 +110,13 @@ def test_execute_command(
     )
     valid = motor_controller.execute_command(byte_command)
 
-    match initial_enabled, command_type, command_payload:
-        case False, Commands.ENABLE, _:
-            motor_controller.central_hub_interface.write.assert_called_once_with(
-                Commands.ACK_COMMAND
-            )
-            assert motor_controller.central_hub_interface.write.call_count == 1
-            assert motor_controller.drive.call_count == 0
-            assert motor_controller.ENABLED == True
-            assert valid == True
-        case False, _, _:
-            motor_controller.central_hub_interface.write.assert_not_called()
-            assert motor_controller.drive.call_count == 0
-            assert motor_controller.ENABLED == False
-
-        case True, Commands.ENABLE, _:
-            motor_controller.central_hub_interface.write.assert_called_once_with(
-                Commands.ACK_COMMAND
-            )
-            assert motor_controller.central_hub_interface.write.call_count == 1
-            assert motor_controller.drive.call_count == 0
-            assert motor_controller.ENABLED == True
-            assert valid == True
-        case True, Commands.DISABLE, _:
-            motor_controller.central_hub_interface.write.assert_called_once_with(
-                Commands.ACK_COMMAND
-            )
-            assert motor_controller.central_hub_interface.write.call_count == 1
-            assert motor_controller.drive.call_count == 0
-            assert motor_controller.ENABLED == False
-            assert valid == True
-        case True, Commands.SET_SPEED_LEFT_RIGHT, (left_speed, right_speed):
+    match command_type, command_payload:
+        case Commands.SET_SPEED_LEFT_RIGHT, (left_speed, right_speed):
             motor_controller.drive.assert_called_once_with(left_speed, right_speed)
             assert motor_controller.drive.call_count == 1
             assert motor_controller.central_hub_interface.write.call_count == 0
             assert valid == True
-        case True, Commands.SET_SPEED_MIXED, (speed_command, turn):
+        case Commands.SET_SPEED_MIXED, (speed_command, turn):
             motor_controller.drive.assert_called_once_with(speed_command, 0, turn)
             assert motor_controller.drive.call_count == 1
             assert motor_controller.central_hub_interface.write.call_count == 0
@@ -162,51 +141,94 @@ def test_rpm_to_setpoint(input_rpm, expected_setpoint):
 
 
 @pytest.mark.parametrize(
-    "motor_id",
-    [motor_controller_module.LEFT_MOTOR_ID, motor_controller_module.RIGHT_MOTOR_ID],
-)
-@pytest.mark.parametrize(
-    "current_left",
+    "current_ratio",
     [
+        -1.5,
+        -1,
+        -0.5,
+        -0.2,
+        -0.1,
         0,
-        MotorController.THRESHOLD_CURRENT,
-        MotorController.THRESHOLD_CURRENT + 0.2,
-        -MotorController.THRESHOLD_CURRENT,
-        -MotorController.THRESHOLD_CURRENT - 0.2,
+        0.1,
+        0.2,
+        0.5,
+        1,
+        1.5,
     ],
 )
 @pytest.mark.parametrize(
-    "current_right",
+    "prev_range",
     [
+        200,
+        100,
+        50,
+        20,
+        10,
         0,
-        MotorController.THRESHOLD_CURRENT,
-        MotorController.THRESHOLD_CURRENT + 0.2,
-        -MotorController.THRESHOLD_CURRENT,
-        -MotorController.THRESHOLD_CURRENT - 0.2,
     ],
 )
-def test_is_overcurrent(
+
+def test_current_to_output_map(
     motor_controller,
-    motor_id,
-    current_left,
-    current_right,
+    current_ratio,
+    prev_range,
 ):
     """Test the over current detection"""
-    motor_controller.left_motor.current = current_left
-    motor_controller.right_motor.current = current_right
-    expected_result = False
-    if (
-        motor_id == motor_controller_module.LEFT_MOTOR_ID
-        and (
-            current_left > MotorController.THRESHOLD_CURRENT
-            or current_left < -MotorController.THRESHOLD_CURRENT
-        )
-    ) or (
-        motor_id == motor_controller_module.RIGHT_MOTOR_ID
-        and (
-            current_right > MotorController.THRESHOLD_CURRENT
-            or current_right < -MotorController.THRESHOLD_CURRENT
-        )
-    ):
-        expected_result = True
-    assert motor_controller.is_overcurrent(motor_id) == expected_result
+    current = current_ratio * MotorController.THRESHOLD_CURRENT
+    output_range = motor_controller.current_to_output_map(current, prev_range)
+    print(output_range)
+    if abs(current_ratio) < 0.2 and prev_range == 200:
+        assert output_range == (-100, 100)
+    elif abs(current_ratio) > 1:
+        assert output_range == (0, 0)
+    else:
+        expected_range = (1 - abs(current_ratio)) * ((prev_range + 10) * 1.2)/2
+        expected_range = min(expected_range, 100)
+        # Use approx to compare floats
+        assert output_range[0] == pytest.approx(-expected_range)
+        assert output_range[1] == pytest.approx(expected_range)
+        
+# @pytest.mark.parametrize(
+#     "motor_id",
+#     [motor_controller_module.LEFT_MOTOR_ID, motor_controller_module.RIGHT_MOTOR_ID],
+# )
+# @pytest.mark.parametrize(
+#     "current_left",
+#     [
+#         0,
+#         MotorController.THRESHOLD_CURRENT,
+#         MotorController.THRESHOLD_CURRENT + 0.2,
+#         -MotorController.THRESHOLD_CURRENT,
+#         -MotorController.THRESHOLD_CURRENT - 0.2,
+#     ],
+# )
+# @pytest.mark.parametrize(
+#     "current_right",
+#     [
+#         0,
+#         MotorController.THRESHOLD_CURRENT,
+#         MotorController.THRESHOLD_CURRENT + 0.2,
+#         -MotorController.THRESHOLD_CURRENT,
+#         -MotorController.THRESHOLD_CURRENT - 0.2,
+#     ],
+# )
+    # motor_controller.left_motor.current = current
+    # motor_controller.right_motor.current = current_right
+    # expected_result = False
+    # if (
+    #     motor_id == motor_controller_module.LEFT_MOTOR_ID
+    #     and (
+    #         current_left > MotorController.THRESHOLD_CURRENT
+    #         or current_left < -MotorController.THRESHOLD_CURRENT
+    #     )
+    # ) or (
+    #     motor_id == motor_controller_module.RIGHT_MOTOR_ID
+    #     and (
+    #         current_right > MotorController.THRESHOLD_CURRENT
+    #         or current_right < -MotorController.THRESHOLD_CURRENT
+    #     )
+    # ):
+    #     expected_result = True
+    # assert motor_controller.is_overcurrent(motor_id) == expected_result
+
+

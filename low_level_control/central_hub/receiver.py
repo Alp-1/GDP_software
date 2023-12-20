@@ -22,7 +22,7 @@ class RCReceiver:
     CHANNEL_7 = 6
     CHANNEL_8 = 7
 
-    def __init__(self, no_of_channels: int, rc_interface=None):
+    def __init__(self, no_of_channels: int, rc_interface=None, rc_timeout_ms=1000):
         """Initialise and assign the type of channels of the controller.
 
         Parameters
@@ -58,7 +58,7 @@ class RCReceiver:
             self.rc_interface = rc_interface
         self.rc_range = self.rc_interface.max_value - self.rc_interface.min_value
 
-        self.rc_timeout_ms = 1000
+        self.rc_timeout_ms = rc_timeout_ms
 
     def is_active(self) -> bool:
         """Check if the RC receiver is active"""
