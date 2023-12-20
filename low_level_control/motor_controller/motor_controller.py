@@ -185,28 +185,52 @@ class MotorController:
         If the current mode is individual, the pid output will be reduced
         """
         if self.current_mode == self.MIXED:
-            left_clipped_range = self.current_to_output_map(self.left_motor.current)
-            right_clipped_range = self.current_to_output_map(self.right_motor.current)
+            prev_range = self.mixed_clipped_range[1] - self.mixed_clipped_range[0]
+            left_clipped_range = self.current_to_output_map(
+                self.left_motor.current, prev_range=prev_range
+            )
+            right_clipped_range = self.current_to_output_map(
+                self.right_motor.current, prev_range=prev_range
+            )
             self.mixed_clipped_range = (
                 max(left_clipped_range[0], right_clipped_range[0]),
                 min(left_clipped_range[1], right_clipped_range[1]),
             )
+            return self.mixed_clipped_range
         elif self.current_mode == self.INDEPENDENT_MOTOR:
+            max_range = self.MAX_PID_RANGE[1] - self.MAX_PID_RANGE[0]
+            left_prev_range = (
+                self.pid_left.output_limits[1] - self.pid_left.output_limits[0]
+            )
+            right_prev_range = (
+                self.pid_right.output_limits[1] - self.pid_right.output_limits[0]
+            )
             self.pid_left.output_limits = self.current_to_output_map(
-                self.left_motor.current, max_range=self.MAX_PID_RANGE
+                self.left_motor.current,
+                prev_range=left_prev_range,
+                max_range=max_range,
             )
             self.pid_right.output_limits = self.current_to_output_map(
-                self.right_motor.current, max_range=self.MAX_PID_RANGE
+                self.right_motor.current,
+                prev_range=right_prev_range,
+                max_range=max_range,
             )
+            return self.pid_left.output_limits, self.pid_right.output_limits
 
-    def current_to_output_map(self, current, max_range=(-100, 100)):
+    def current_to_output_map(self, current, prev_range, max_range=200):
         """Return the clipped output range of the controller"""
         # No output cap for current less than 20% of the threshold (3A for 15A threshold)
-        if abs(current) < 0.2 * self.THRESHOLD_CURRENT:
-            return max_range
-        clipped_range = (self.THRESHOLD_CURRENT - abs(current)) / self.THRESHOLD_CURRENT
-        clipped_range = max(clipped_range, 0)  # Prevent negative values
-        clipped_range = clipped_range * (max_range[1] - max_range[0])
+        if abs(current) < 0.2 * self.THRESHOLD_CURRENT and prev_range == max_range:
+            return (-max_range / 2, max_range / 2)
+        # Generate a range from 0 to 1
+        normalised_clipped_range = (
+            self.THRESHOLD_CURRENT - abs(current)
+        ) / self.THRESHOLD_CURRENT
+        # Prevent negative values
+        normalised_clipped_range = max(normalised_clipped_range, 0)
+        # Slowly increase the range to prevent aggressive oscillation
+        clipped_range = normalised_clipped_range * (prev_range + 10) * 1.2
+        clipped_range = min(clipped_range, max_range)
         return (-clipped_range / 2, clipped_range / 2)  # Assume the output is symmetric
 
     @staticmethod
