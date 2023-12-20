@@ -219,11 +219,13 @@ class CentralHub:
     async def update_state(self):
         """Constantly checking the state of the system on the state selector switch"""
         while True:
-            if self.state != self.state_selector:
+            if not self.rc_receiver.is_active() and self.state != self.FAULT:
+                self.state = self.FAULT
+                self.state_action()
+            elif self.state != self.state_selector:
                 # Only update the state if the state selector switch is changed
                 self.state = self.state_selector
-                if self.armed:
-                    self.state_action()
+                self.state_action()
             await asyncio.sleep_ms(self.E_STOP_CHECK_PERIOD_MS)
 
     def average_filter(self, window_size, data_fn, *args):
@@ -282,19 +284,22 @@ class CentralHub:
             self.controllers["rear"].write(command_rear)
 
     def state_action(self):
-        """Configure the user interface according to the state of the system"""
+        """Configure the user interface according to the state of the system
+        Only configure the user interface if the low level controller is armed
+        """
 
-        if self.state == self.PAUSED:
-            OnBoardLED.set_period_ms(500)
-            # Release the emergency stop if it is not triggered
-            self.e_stop_pin.value(0)
-        elif self.state == self.RUNNING:
-            OnBoardLED.set_period_ms(1000)
-            # Release the emergency stop if it is not triggered
-            self.e_stop_pin.value(0)
-        elif self.state == self.FAULT:
-            OnBoardLED.set_period_ms(100)
-            self.stop_motor()
+        if self.armed:
+            if self.state == self.PAUSED:
+                OnBoardLED.set_period_ms(500)
+                # Release the emergency stop if it is not triggered
+                self.e_stop_pin.value(0)
+            elif self.state == self.RUNNING:
+                OnBoardLED.set_period_ms(1000)
+                # Release the emergency stop if it is not triggered
+                self.e_stop_pin.value(0)
+            elif self.state == self.FAULT:
+                OnBoardLED.set_period_ms(100)
+                self.stop_motor()
 
     async def command_loop(self):
         """The main command loop. Call this method to update the speed command periodically."""
