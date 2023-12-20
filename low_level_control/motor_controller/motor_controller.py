@@ -35,6 +35,8 @@ class MotorController:
     PID_PERIOD_MS = 200
     MAIN_LOOP_PERIOD_MS = 1
     SENSOR_UPDATE_PERIOD_MS = 1000
+    # Period before the central hub is considered disconnected
+    CENTRAL_HUB_TIMEOUT_MS = 1000
 
     # Speed setpoint range
     MAX_SPEED_RPM = 165
@@ -358,10 +360,25 @@ class MotorController:
             min(rpm, MotorController.MAX_SPEED_RPM), MotorController.MIN_SPEED_RPM
         )
 
+    def central_hub_timeout_handler(self):
+        """Stop the motors when the central hub timeout"""
+        self.left_speed_command = 0
+        self.right_speed_command = 0
+        if self.current_mode == self.MIXED:
+            self.turn = 0
+            self.drive(self.left_speed_command, 0, self.turn)
+        elif self.current_mode == self.INDEPENDENT_MOTOR:
+            self.set_pid_setpoint(self.pid_left, self.left_speed_command)
+            self.set_pid_setpoint(self.pid_right, self.right_speed_command)
+            self.pid_update()
+        else:
+            print("Unknown mode")
+
     def main_control_loop(self):
         """Inteprets the commands from the central hub and controls the motors"""
         OnBoardLED.on()
         prev_sensor_time = time.ticks_ms()
+        last_command_time = time.ticks_ms()
 
         while True:  # Can be changed to use async to allow other tasks to run
             # The command will latch until a new command is received
@@ -377,9 +394,16 @@ class MotorController:
             if self.central_hub_interface.any() != 0:
                 command = self.central_hub_interface.read()
                 self.execute_command(command)
+                last_command_time = time.ticks_ms()
             else:
                 # Try to parse the remaining data in the buffer
                 self.execute_command(b"")
+                # Check if the central hub is disconnected
+                if (
+                    time.ticks_diff(time.ticks_ms(), last_command_time)
+                    > self.CENTRAL_HUB_TIMEOUT_MS
+                ):
+                    self.central_hub_timeout_handler()
 
             if self.current_mode == self.MIXED:
                 self.drive(self.left_speed_command, 0, self.turn)
