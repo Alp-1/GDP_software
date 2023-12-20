@@ -274,9 +274,10 @@ def detect_tall_vegetation(depth_image):
 def gap_size(depth_image, column):
     gap_threshold = 0.3
     start_row = depth_image.shape[0] // 2
-    # start_row = 150
     width_left = column
     width_right = column
+    height_up = start_row
+
     while width_left > 1:
         difference = depth_image[start_row, width_left] - depth_image[start_row, width_left - 1]
         if difference > gap_threshold and depth_image[start_row, width_left - 1] < (2 * obstacle_threshold) and \
@@ -284,6 +285,8 @@ def gap_size(depth_image, column):
             break
         else:
             width_left -= 1
+    width_left -= 1
+
     while width_right < (depth_image.shape[1] - 2):
         difference = depth_image[start_row, width_right] - depth_image[start_row, width_right + 1]
         if difference > gap_threshold and depth_image[start_row, width_right + 1] < (2 * obstacle_threshold) and \
@@ -291,8 +294,8 @@ def gap_size(depth_image, column):
             break
         else:
             width_right += 1
+    width_right += 1
 
-    height_up = start_row
     while height_up > 1:
         difference = depth_image[height_up, column] - depth_image[height_up - 1, column]
         if difference > gap_threshold and depth_image[height_up - 1, column] < (2 * obstacle_threshold) and depth_image[
@@ -300,22 +303,23 @@ def gap_size(depth_image, column):
             break
         else:
             height_up -= 1
+    height_up -= 1
 
     gap_width = calculate_distance(depth_image, start_row, width_left, start_row, width_right)
     gap_height = calculate_distance(depth_image, start_row, column, height_up, column)
     print(f"GAP: height from camera:{gap_height} width:{gap_width}")
-    # print(f"{width_left} {width_right}")
     return gap_height, gap_width
 
 
 def movement_commands(angle):
     print(angle)
-    mavlink_turn_and_go(0.3, 0, 0, angle)
+    mavlink_turn(0, 0, 0, angle)
     print("turning")
     time.sleep(1)
     mavlink_velocity(0.7, 0, 0)
     print("going forward")
-    # time.sleep(0.3) #the rover should only go forward blindly until the next image is processed
+    time.sleep(0.3)  # the rover should only go forward blindly until the next image is processed
+
 
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(depth_image,color_image):
