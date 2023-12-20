@@ -8,7 +8,7 @@ import pyrealsense2 as rs
 from dronekit import *
 import geometric_map as geo
 
-obstacle_threshold = 0.8
+obstacle_threshold = 1.0
 vegetation_threshold = 0.017
 column_width = 40  # might need adjusting
 # Specify the width of the rover in meters
@@ -105,9 +105,10 @@ def is_deadend(depth_image,direction_column):
     # Find the minimum value while excluding masked values (0s)
     min_value_without_zeros = np.min(masked_array)
     print(f"clearest patch:\n")
-    print(square)
-    print(masked_array)
+    print(np.min(square))
     print(min_value_without_zeros)
+    # print(square)
+    # print(masked_array)
     if min_value_without_zeros < obstacle_threshold:
         return True
     else:
@@ -265,15 +266,18 @@ try:
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-        distance = distance_to_obstacle(depth_image)
-        if distance < obstacle_threshold:
-            print("Obstacle detected! Taking evasive action.")
+        # distance = distance_to_obstacle(depth_image)
+        # if distance < obstacle_threshold:
+            # print("Obstacle detected! Taking evasive action.")
 
-        # print(calculate_distance(depth_image,200,150,215,150))
-        chosen_angle = navigate_avoiding_obstacles(depth_image,color_image)
-        print("GAP")
-        print(gap_size(depth_image,249))
-        time.sleep(5)
+        # # print(calculate_distance(depth_image,200,150,215,150))
+        # chosen_angle = navigate_avoiding_obstacles(depth_image,color_image)
+        # print("GAP")
+        # print(gap_size(depth_image,249))
+        # time.sleep(5)
+        print(is_deadend(depth_image, 180))
+        
+        time.sleep(30)
 
 except KeyboardInterrupt:
     print("Script terminated by user")
