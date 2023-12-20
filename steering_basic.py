@@ -433,12 +433,12 @@ def wheels_are_spinning():
         return False
 
 def is_tall_vegetation(depth_image,speed):
-    percentage_threhsold = 0.5
+    percentage_threshold = 0.5
     nr_of_pixels = depth_image.size
     print(nr_of_pixels)
     percentage = np.count_nonzero(depth_image==0) / nr_of_pixels
     print(f"percentage of pixels with 0 value:{percentage}")
-    if percentage>percentage_threhsold and speed > 0.1:
+    if percentage>percentage_threshold and speed > 0.1:
         return True
     else:
         return False
