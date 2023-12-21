@@ -438,22 +438,87 @@ def is_tall_vegetation(depth_image,speed):
     print(nr_of_pixels)
     percentage = np.count_nonzero(depth_image==0) / nr_of_pixels
     print(f"percentage of pixels with 0 value:{percentage}")
-    if percentage>percentage_threshold and speed > 0.1:
+    if percentage>percentage_threshold and speed > 0.35:
         return True
     else:
         return False
 
+
 def is_collision(speed):
-    if speed < 0.05 and wheels_are_spinning():
+    if speed < 0.25 and wheels_are_spinning():
         return True
     else:
         return False
+
+
+
+def calculate_distance(depth_image, y1, x1, y2, x2):
+    # udist = depth_frame.get_distance(x1, y1)
+    # vdist = depth_frame.get_distance(x2, y2)
+    udist = depth_image[y1, x1]
+    vdist = depth_image[y2, x2]
+
+    point1 = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [y1, x1], udist)
+    point2 = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [y2, x2], vdist)
+
+    # euclidean distance between two points, measured in meters
+    dist = math.sqrt(
+        math.pow(point1[0] - point2[0], 2) + math.pow(point1[1] - point2[1], 2) + math.pow(
+            point1[2] - point2[2], 2))
+    # result[0]: right, result[1]: down, result[2]: forward
+    return dist
+
+
+def gap_size(depth_image, column):
+    gap_threshold = 0.4
+    start_row = depth_image.shape[0] // 2
+    width_left = column
+    width_right = column
+    height_up = start_row
+
+    while width_left > 1:
+        difference = depth_image[start_row, width_left] - depth_image[start_row, width_left - 1]
+        if difference > gap_threshold and depth_image[start_row, width_left - 1] < (2 * obstacle_threshold) and \
+                depth_image[start_row, width_left - 1] < depth_image[start_row, column]:
+            break
+        else:
+            width_left -= 1
+    width_left -= 1
+
+    while width_right < (depth_image.shape[1] - 2):
+        difference = depth_image[start_row, width_right] - depth_image[start_row, width_right + 1]
+        if difference > gap_threshold and depth_image[start_row, width_right + 1] < (2 * obstacle_threshold) and \
+                depth_image[start_row, width_left + 1] < depth_image[start_row, column]:
+            break
+        else:
+            width_right += 1
+    width_right += 1
+
+    while height_up > 1:
+        difference = depth_image[height_up, column] - depth_image[height_up - 1, column]
+        if difference > gap_threshold and depth_image[height_up - 1, column] < (2 * obstacle_threshold) and depth_image[
+            height_up - 1, column] < depth_image[start_row, column]:
+            break
+        else:
+            height_up -= 1
+    height_up -= 1
+
+    gap_width = calculate_distance(depth_image, start_row, width_left, start_row, width_right)
+    gap_height = calculate_distance(depth_image, start_row, column, height_up, column)
+    print(f"gap boundary pixels:{width_left} {width_right}")
+    print(f"GAP: height from camera:{gap_height} width:{gap_width}")
+    return gap_height, gap_width
+
 
 # Main execution loop
 try:
     pipeline, profile = initialize_realsense()
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
+
+    frames = pipeline.wait_for_frames()
+    prof = frames.get_profile()
+    depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
     print("Depth Scale is: ", depth_scale)
     detect_collision(mavlink_connection)
     vehicle.armed = True
@@ -470,7 +535,7 @@ try:
 
         if is_collision(current_speed):
             print("COLLISION")
-
+        gap_size(depth_image,depth_image.shape[1]//2)
         # if both -> go back abit. if only one of the, different
         # how to interpret encoder data
         # detect_collision(mavlink_connection)

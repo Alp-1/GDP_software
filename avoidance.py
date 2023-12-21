@@ -188,7 +188,7 @@ def is_deadend(depth_image, direction_column):
     # Find the minimum value while excluding masked values (0s)
 
     min_value_without_zeros = np.min(masked_array)
-    print(f"deadend distance: {min_value_without_zeros}")
+    print(f"distance to obstacle in chosen direction: {min_value_without_zeros}")
 
     if min_value_without_zeros < deadend_threshold:
         return True
@@ -199,6 +199,7 @@ def is_deadend(depth_image, direction_column):
 def deadend_protocol():
     mavlink_velocity(0, 0, 0)
     time.sleep(1)
+    print("deadend - turn right")
     mavlink_turn(0, 0, 0, 45)
     time.sleep(1)
     depth_image, color_image = get_new_images()
@@ -206,6 +207,7 @@ def deadend_protocol():
     if not is_deadend(depth_image, new_column):
         movement_commands(new_angle)
     else:
+        print("deadend - turning left")
         mavlink_turn(0, 0, 0, 270)
         time.sleep(1)
         depth_image, color_image = get_new_images()
@@ -293,7 +295,7 @@ def detect_tall_vegetation(depth_image):
 
 
 def gap_size(depth_image, column):
-    gap_threshold = 0.3
+    gap_threshold = 0.4
     start_row = depth_image.shape[0] // 2
     width_left = column
     width_right = column
@@ -328,16 +330,17 @@ def gap_size(depth_image, column):
 
     gap_width = calculate_distance(depth_image, start_row, width_left, start_row, width_right)
     gap_height = calculate_distance(depth_image, start_row, column, height_up, column)
+    print(f"gap boundary pixels:{width_left} {width_right}")
     print(f"GAP: height from camera:{gap_height} width:{gap_width}")
     return gap_height, gap_width
 
 
 def movement_commands(angle):
     print(angle)
-    mavlink_turn_and_go(0.3, 0, 0, angle)
+    mavlink_turn_and_go(0.2, 0, 0, angle)
     print("turning")
     time.sleep(1)
-    mavlink_velocity(0.7, 0, 0)
+    mavlink_velocity(0.5, 0, 0)
     print("going forward")
     # time.sleep(0.3) #the rover should only go forward blindly until the next image is processed
 
