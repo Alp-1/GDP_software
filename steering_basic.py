@@ -497,7 +497,7 @@ def gap_size(depth_image, column):
             while width_right < (depth_image.shape[1] - 2):
                 difference = depth_image[row, width_right] - depth_image[row, width_right + 1]
                 if difference > gap_threshold and depth_image[row, width_right + 1] < (2 * obstacle_threshold) and \
-                        depth_image[row, width_left + 1] < depth_image[row, column] and depth_image[row, width_left + 1]!=0:
+                        depth_image[row, width_right + 1] < depth_image[row, column] and depth_image[row, width_right + 1]!=0:
                     break
                 else:
                     width_right += 1

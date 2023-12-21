@@ -302,7 +302,7 @@ def gap_size(depth_image, column):
     height_up = depth_image.shape[0] // 2
 
     square_height = depth_image.shape[0] // 10
-    square_width = column_width
+    # square_width = column_width
     start_row = (depth_image.shape[0] - square_height) // 2
     end_row = start_row + square_height
     gap_width = 9999.0
@@ -322,7 +322,7 @@ def gap_size(depth_image, column):
             while width_right < (depth_image.shape[1] - 2):
                 difference = depth_image[row, width_right] - depth_image[row, width_right + 1]
                 if difference > gap_threshold and depth_image[row, width_right + 1] < (2 * obstacle_threshold) and \
-                        depth_image[row, width_left + 1] < depth_image[row, column] and depth_image[row, width_left + 1]!=0:
+                        depth_image[row, width_right + 1] < depth_image[row, column] and depth_image[row, width_right + 1]!=0:
                     break
                 else:
                     width_right += 1
