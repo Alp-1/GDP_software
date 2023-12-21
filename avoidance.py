@@ -296,40 +296,50 @@ def detect_tall_vegetation(depth_image):
 
 def gap_size(depth_image, column):
     gap_threshold = 0.4
-    start_row = depth_image.shape[0] // 2
+    # start_row = depth_image.shape[0] // 2
     width_left = column
     width_right = column
-    height_up = start_row
+    height_up = depth_image.shape[0] // 2
 
-    while width_left > 1:
-        difference = depth_image[start_row, width_left] - depth_image[start_row, width_left - 1]
-        if difference > gap_threshold and depth_image[start_row, width_left - 1] < (2 * obstacle_threshold) and \
-                depth_image[start_row, width_left - 1] < depth_image[start_row, column]:
-            break
-        else:
+    square_height = depth_image.shape[0] // 10
+    square_width = column_width
+    start_row = (depth_image.shape[0] - square_height) // 2
+    end_row = start_row + square_height
+    gap_width = 9999.0
+    for row in range(start_row, end_row+1):
+        width_left = column
+        width_right = column
+        if depth_image[row,column] != 0:
+            while width_left > 1:
+                difference = depth_image[row, width_left] - depth_image[row, width_left - 1]
+                if difference > gap_threshold and depth_image[row, width_left - 1] < (2 * obstacle_threshold) and \
+                        depth_image[row, width_left - 1] < depth_image[row, column] and depth_image[row, width_left - 1] !=0:
+                    break
+                else:
+                    width_left -= 1
             width_left -= 1
-    width_left -= 1
 
-    while width_right < (depth_image.shape[1] - 2):
-        difference = depth_image[start_row, width_right] - depth_image[start_row, width_right + 1]
-        if difference > gap_threshold and depth_image[start_row, width_right + 1] < (2 * obstacle_threshold) and \
-                depth_image[start_row, width_left + 1] < depth_image[start_row, column]:
-            break
-        else:
+            while width_right < (depth_image.shape[1] - 2):
+                difference = depth_image[row, width_right] - depth_image[row, width_right + 1]
+                if difference > gap_threshold and depth_image[row, width_right + 1] < (2 * obstacle_threshold) and \
+                        depth_image[row, width_left + 1] < depth_image[row, column] and depth_image[row, width_left + 1]!=0:
+                    break
+                else:
+                    width_right += 1
             width_right += 1
-    width_right += 1
+            width = calculate_distance(depth_image, row, width_left, row, width_right)
+            gap_width = min(width,gap_width)
 
     while height_up > 1:
         difference = depth_image[height_up, column] - depth_image[height_up - 1, column]
         if difference > gap_threshold and depth_image[height_up - 1, column] < (2 * obstacle_threshold) and depth_image[
-            height_up - 1, column] < depth_image[start_row, column]:
+            height_up - 1, column] < depth_image[row, column] and depth_image[height_up - 1, column] != 0:
             break
         else:
             height_up -= 1
     height_up -= 1
 
-    gap_width = calculate_distance(depth_image, start_row, width_left, start_row, width_right)
-    gap_height = calculate_distance(depth_image, start_row, column, height_up, column)
+    gap_height = calculate_distance(depth_image, row, column, height_up, column)
     print(f"gap boundary pixels:{width_left} {width_right}")
     print(f"GAP: height from camera:{gap_height} width:{gap_width}")
     return gap_height, gap_width
