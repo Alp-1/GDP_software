@@ -200,7 +200,7 @@ def initialize_realsense():
     sensor = profile.get_device().query_sensors()[1]
     sensor.set_option(rs.option.enable_auto_exposure, False)
     sensor.set_option(rs.option.exposure, 78.0)
-    sensor.set_option(rs.option.gain, 85.0)
+    sensor.set_option(rs.option.gain, 90.0)
 
     depth_sensor = profile.get_device().query_sensors()[0]
     # depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5. doesn't work rn, maybe because of no advanced mode on pi?
@@ -212,7 +212,7 @@ def apply_filters(depth_frame):
     spatial = rs.spatial_filter()
     spatial.set_option(rs.option.holes_fill, 5)  # do I still need hole filling???
     hole_filling = rs.hole_filling_filter(2)  # use min of neighbour cells,might need changing
-    threshold_filter = rs.threshold_filter(0.3, 16)
+    threshold_filter = rs.threshold_filter(0.3, 4.0)
     depth_to_disparity = rs.disparity_transform(True)
     disparity_to_depth = rs.disparity_transform(False)
 
