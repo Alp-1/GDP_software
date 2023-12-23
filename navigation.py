@@ -175,7 +175,7 @@ def get_new_images():
 
 
 def is_deadend(depth_image,direction_column):
-    square_height = depth_image.shape[0] // 10
+    square_height = depth_image.shape[0] // 40
     square_width = column_width
     start_row = (depth_image.shape[0] - square_height) // 2
     start_col = direction_column - (square_width // 2)
@@ -218,7 +218,7 @@ def deadend_protocol():
 def distance_to_obstacle(depth_image):
     # Calculate the size of the central square
     central_width = depth_image.shape[1] // 3
-    central_height = depth_image.shape[0] // 10
+    central_height = depth_image.shape[0] // 40
 
     # Calculate the starting indices for the central square
     start_row = (depth_image.shape[0] - central_height) // 2
@@ -291,13 +291,13 @@ def detect_tall_vegetation(depth_image):
 
 
 def gap_size(depth_image, column):
-    gap_threshold = 0.4
+    gap_threshold = 0.5
     # start_row = depth_image.shape[0] // 2
     width_left = column
     width_right = column
     height_up = depth_image.shape[0] // 2
 
-    square_height = depth_image.shape[0] // 10
+    square_height = depth_image.shape[0] // 40
     # square_width = column_width
     start_row = (depth_image.shape[0] - square_height) // 2
     end_row = start_row + square_height
@@ -324,7 +324,8 @@ def gap_size(depth_image, column):
                     width_right += 1
             width_right += 1
             width = calculate_distance(depth_image, row, width_left, row, width_right)
-            gap_width = min(width,gap_width)
+            if width>0:
+                gap_width = min(width,gap_width)
 
     while height_up > 1:
         difference = depth_image[height_up, column] - depth_image[height_up - 1, column]
@@ -348,6 +349,25 @@ def movement_commands(angle):
     mavlink_velocity(0.5, 0, 0)
     print("going forward")
     # time.sleep(0.3) #the rover should only go forward blindly until the next image is processed
+
+
+def is_tall_vegetation(depth_image,current_speed):
+    percentage_threshold = 0.5
+    nr_of_pixels = depth_image.size
+    print(nr_of_pixels)
+    percentage = np.count_nonzero(depth_image==0) / nr_of_pixels
+    print(f"percentage of pixels with 0 value:{percentage}")
+    if percentage>percentage_threshold and current_speed > 0.35:
+        return True
+    else:
+        return False
+
+
+def is_collision(current_speed, target_speed):
+    if current_speed < 0.25 and target_speed >= 0.3:
+        return True
+    else:
+        return False
 
 
 # Function to navigate while avoiding obstacles
