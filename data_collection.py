@@ -26,9 +26,9 @@ sensor = profile.get_device().query_sensors()[1]
 sensor.set_option(rs.option.enable_auto_exposure, False)
 sensor.set_option(rs.option.exposure,78.0)
 sensor.set_option(rs.option.gain,90.0)
-
-jsonObj = json.load(open("camera_settings.json"))
-json_string= str(jsonObj).replace("'", '\"')
+#
+# jsonObj = json.load(open("camera_settings.json"))
+# json_string= str(jsonObj).replace("'", '\"')
 dev = profile.get_device()
 # advnc_mode = rs.rs400_advanced_mode(dev)
 # advnc_mode.load_json(json_string)
@@ -42,7 +42,7 @@ depth_scale = depth_sensor.get_depth_scale()
 count = 0
 try:
     while True:
-        time.sleep(3)
+        time.sleep(1)
         print(sensor.get_option(rs.option.exposure))
         print(sensor.get_option(rs.option.gain))
         frames = pipeline.wait_for_frames()
