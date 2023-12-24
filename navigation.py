@@ -8,12 +8,15 @@ import pyrealsense2 as rs
 from dronekit import *
 import geometric_map as geo
 import mav_listener
+from logging_config import setup_custom_logger
+
+logger = setup_custom_logger("navigation")
 
 
 # Connect to the vehicle
 mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)
 mavlink_connection.wait_heartbeat()
-print("Heartbeat from MAVLink system (system %u component %u)" % (
+logger.info("Heartbeat from MAVLink system (system %u component %u)" % (
     mavlink_connection.target_system, mavlink_connection.target_component))
 vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 
@@ -79,7 +82,7 @@ def mavlink_velocity(velocity_x, velocity_y, velocity_z):
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         0, 0)  # yaw, yaw_rate
 
-    print("sexy")
+    logger.info("sexy")
 
 
 def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
@@ -97,9 +100,9 @@ def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
 
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
-    print("Heartbeat received")
-    print("Base Mode: {}".format(message.base_mode))
-    print("Custom Mode: {}".format(message.custom_mode))
+    logger.info("Heartbeat received")
+    logger.info("Base Mode: {}".format(message.base_mode))
+    logger.info("Custom Mode: {}".format(message.custom_mode))
 
 
 # Global variable for the RealSense profile
@@ -152,14 +155,14 @@ def get_new_images():
     depth_frame = frames.get_depth_frame()
     color_frame = frames.get_color_frame()
     if not depth_frame or not color_frame:
-        print("problems")
+        logger.info("problems")
 
     color_image = np.asanyarray(color_frame.get_data())
     depth_frame = apply_filters(depth_frame)
     depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
 
     # num_zeros = np.count_nonzero(depth_image == 0)
-    # print(f"Number of zero values in depth image:{num_zeros}")
+    # logger.info(f"Number of zero values in depth image:{num_zeros}")
     return depth_image,color_image
 
 
@@ -175,7 +178,7 @@ def is_deadend(depth_image,direction_column):
 
     # Find the minimum value while excluding masked values (0s)
     min_value_without_zeros = np.min(masked_array)
-    print(f"Distance to obstacle in chosen direction: {min_value_without_zeros}")
+    logger.info(f"Distance to obstacle in chosen direction: {min_value_without_zeros}")
     if min_value_without_zeros < deadend_threshold:
         return True
     else:
@@ -199,7 +202,7 @@ def deadend_protocol():
         if not is_deadend(depth_image,new_column):
             movement_commands(new_angle)
         else:
-            print("Alp stuff")
+            logger.info("Alp stuff")
 #             other stuff
 
 
@@ -221,8 +224,8 @@ def distance_to_obstacle(depth_image):
     # Find the minimum value while excluding masked values (0s)
     min_value_without_zeros = np.min(masked_array)
     mean_dist = np.mean(masked_array)
-    print(f"distance to obstacle (min): {min_value_without_zeros}")
-    print(f"distance to obstacle (mean): {mean_dist}")
+    logger.info(f"distance to obstacle (min): {min_value_without_zeros}")
+    logger.info(f"distance to obstacle (mean): {mean_dist}")
 
     return min_value_without_zeros
 
@@ -329,8 +332,8 @@ def gap_size(depth_image, column):
     height_up -= 1
 
     gap_height = calculate_distance(depth_image, row, column, height_up, column)
-    print(f"gap boundary pixels:{width_left} {width_right}")
-    print(f"gap: height from camera:{gap_height} width:{gap_width}")
+    logger.info(f"gap boundary pixels:{width_left} {width_right}")
+    logger.info(f"gap: height from camera:{gap_height} width:{gap_width}")
     return gap_height, gap_width
 
 def movement_commands(angle):
@@ -344,7 +347,7 @@ def is_tall_vegetation(depth_image,current_speed):
     percentage_threshold = 0.5
     nr_of_pixels = depth_image.size
     percentage = np.count_nonzero(depth_image==0) / nr_of_pixels
-    print(f"percentage of pixels with 0 value:{percentage}")
+    logger.info(f"percentage of pixels with 0 value:{percentage}")
     if percentage>percentage_threshold and current_speed > 0.35:
         return True
     else:
@@ -361,20 +364,20 @@ def is_collision(current_speed, target_speed):
 
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(depth_image,color_image,dist):
-    print(vehicle.mode.name)
+    logger.info(vehicle.mode.name)
     deadend_status = False
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
         vehicle.mode = VehicleMode("GUIDED")
         column_index, angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
-        print(f"angle:{angle} column:{column_index}")
+        logger.info(f"angle:{angle} column:{column_index}")
         if is_deadend(depth_image,column_index):
-            print("deadend")
+            logger.info("deadend")
             deadend_status = True
 
         current_time = datetime.now().strftime("%H-%M-%S")
         start_time = time.time()
         slope_grid = geo.get_slope_grid(depth_image, depth_intrinsics)
-        print("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
+        logger.info("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
 
         gap_height,gap_width = gap_size(depth_image, column_index)
         save_data_to_txt(dist,slope_grid, angle, deadend_status, gap_height,gap_width, current_time)
@@ -391,22 +394,22 @@ def navigate(depth_image,color_image):
         distance = distance_to_obstacle(depth_image)
         current_speed = mav_listener.get_rover_speed(mavlink_connection)
         current_speed /= 100
-        print(f"current speed:{current_speed}") #to test if target speed can be used for collision detection
+        logger.info(f"current speed:{current_speed}") #to test if target speed can be used for collision detection
 
         if is_tall_vegetation(depth_image,current_speed):
-            print("IN TALL VEGETATION")
+            logger.info("IN TALL VEGETATION")
             #add command to lower speed in AUTO mode
         if distance < 0.7 * obstacle_threshold:
-            print("Obstacle is very close! Stopping")
+            logger.info("Obstacle is very close! Stopping")
             mavlink_velocity(0,0,0)
             time.sleep(0.5)
 
         if distance < obstacle_threshold:
-            print("Obstacle detected! Taking evasive action.")
+            logger.info("Obstacle detected! Taking evasive action.")
             vehicle.mode = VehicleMode("GUIDED")
             navigate_avoiding_obstacles(depth_image,color_image,distance)
         else:
-            print("no obstacle ahead")
+            logger.info("no obstacle ahead")
             vehicle.mode = VehicleMode("AUTO")
 
 
@@ -421,24 +424,24 @@ try:
     pipeline, profile = initialize_realsense()
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
-    print("Depth Scale is: ", depth_scale)
+    logger.info("Depth Scale is: ", depth_scale)
     vehicle.armed = True
 
     frames = pipeline.wait_for_frames()
     prof = frames.get_profile()
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
     while True:
-        print("\n")
+        logger.info("\n")
         depth_image,color_image = get_new_images()
         navigate(depth_image,color_image)
 
 
 except KeyboardInterrupt:
-    print("Script terminated by user")
+    logger.info("Script terminated by user")
 
 finally:
     pipeline.stop()
     cv2.destroyAllWindows()
     vehicle.close()
     mavlink_connection.close()
-    print("Connection closed.")
+    logger.info("Connection closed.")
