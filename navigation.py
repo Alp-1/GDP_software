@@ -178,7 +178,9 @@ def is_deadend(depth_image,direction_column):
 
     # Find the minimum value while excluding masked values (0s)
     min_value_without_zeros = np.min(masked_array)
+    mean_dist = np.mean(masked_array)
     logger.info(f"Distance to obstacle in chosen direction: {min_value_without_zeros}")
+    logger.info(f"Distance to obstacle in chosen direction(mean): {mean_dist}")
     if min_value_without_zeros < deadend_threshold:
         return True
     else:
