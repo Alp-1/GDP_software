@@ -20,7 +20,7 @@ logger.info("Heartbeat from MAVLink system (system %u component %u)" % (
 vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 
 obstacle_threshold = 1.0
-deadend_threshold = 1.3
+deadend_threshold = 1.0
 vegetation_threshold = 0.017
 column_width = 30  # might need adjusting
 # Specify the width of the rover in meters

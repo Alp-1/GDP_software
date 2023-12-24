@@ -18,8 +18,9 @@ print("Heartbeat from MAVLink system (system %u component %u)" % (
 vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 
 obstacle_threshold = 1.0
+deadend_threshold = 1.0
 vegetation_threshold = 0.017
-column_width = 30  # might need adjusting
+column_width = 50  # might need adjusting
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
 folder_name = ""
@@ -105,18 +106,6 @@ def heartbeat_listener(self, name, message):
 profile = None
 
 
-# Function to clear RC overrides
-def override_rc_channels(ch1, ch2, ch3, ch4):
-    """
-    Override RC channels using pymavlink.
-    ch1, ch2, ch3, ch4: Channel values (1000 to 2000)
-    """
-    mavlink_connection.mav.rc_channels_override_send(
-        mavlink_connection.target_system,  # target_system
-        mavlink_connection.target_component,  # target_component
-        ch1, ch2, ch3, ch4, 0, 0, 0, 0)  # channels 1-8 (set channels 5-8 to 0)
-
-
 # Initialize RealSense pipeline and profile
 def initialize_realsense():
     global profile
@@ -186,9 +175,8 @@ def is_deadend(depth_image,direction_column):
 
     # Find the minimum value while excluding masked values (0s)
     min_value_without_zeros = np.min(masked_array)
-    print(f"deadend column: {direction_column}")
-    print(f"deadend distance: {min_value_without_zeros}")
-    if min_value_without_zeros < obstacle_threshold:
+    print(f"Distance to obstacle in chosen direction: {min_value_without_zeros}")
+    if min_value_without_zeros < deadend_threshold:
         return True
     else:
         return False
@@ -217,7 +205,7 @@ def deadend_protocol():
 
 def distance_to_obstacle(depth_image):
     # Calculate the size of the central square
-    central_width = depth_image.shape[1] // 3
+    central_width = depth_image.shape[1] // 4
     central_height = depth_image.shape[0] // 40
 
     # Calculate the starting indices for the central square
@@ -232,6 +220,10 @@ def distance_to_obstacle(depth_image):
 
     # Find the minimum value while excluding masked values (0s)
     min_value_without_zeros = np.min(masked_array)
+    mean_dist = np.mean(masked_array)
+    print(f"distance to obstacle (min): {min_value_without_zeros}")
+    print(f"distance to obstacle (mean): {mean_dist}")
+
     return min_value_without_zeros
 
 
@@ -338,23 +330,19 @@ def gap_size(depth_image, column):
 
     gap_height = calculate_distance(depth_image, row, column, height_up, column)
     print(f"gap boundary pixels:{width_left} {width_right}")
-    print(f"GAP: height from camera:{gap_height} width:{gap_width}")
+    print(f"gap: height from camera:{gap_height} width:{gap_width}")
     return gap_height, gap_width
 
 def movement_commands(angle):
-    print(angle)
     mavlink_turn_and_go(0.2, 0, 0, angle)
-    print("turning")
     time.sleep(1)
     mavlink_velocity(0.5, 0, 0)
-    print("going forward")
     # time.sleep(0.3) #the rover should only go forward blindly until the next image is processed
 
 
 def is_tall_vegetation(depth_image,current_speed):
     percentage_threshold = 0.5
     nr_of_pixels = depth_image.size
-    print(nr_of_pixels)
     percentage = np.count_nonzero(depth_image==0) / nr_of_pixels
     print(f"percentage of pixels with 0 value:{percentage}")
     if percentage>percentage_threshold and current_speed > 0.35:
@@ -365,6 +353,7 @@ def is_tall_vegetation(depth_image,current_speed):
 
 def is_collision(current_speed, target_speed):
     if current_speed < 0.25 and target_speed >= 0.3:
+
         return True
     else:
         return False
@@ -377,7 +366,7 @@ def navigate_avoiding_obstacles(depth_image,color_image,dist):
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
         vehicle.mode = VehicleMode("GUIDED")
         column_index, angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
-
+        print(f"angle:{angle} column:{column_index}")
         if is_deadend(depth_image,column_index):
             print("deadend")
             deadend_status = True
@@ -400,6 +389,18 @@ def navigate_avoiding_obstacles(depth_image,color_image,dist):
 def navigate(depth_image,color_image):
     if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
         distance = distance_to_obstacle(depth_image)
+        current_speed = mav_listener.get_rover_speed(mavlink_connection)
+        current_speed /= 100
+        print(f"current speed:{current_speed}") #to test if target speed can be used for collision detection
+
+        if is_tall_vegetation(depth_image,current_speed):
+            print("IN TALL VEGETATION")
+            #add command to lower speed in AUTO mode
+        if distance < 0.7 * obstacle_threshold:
+            print("Obstacle is very close! Stopping")
+            mavlink_velocity(0,0,0)
+            time.sleep(0.5)
+
         if distance < obstacle_threshold:
             print("Obstacle detected! Taking evasive action.")
             vehicle.mode = VehicleMode("GUIDED")
@@ -427,6 +428,7 @@ try:
     prof = frames.get_profile()
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
     while True:
+        print("\n")
         depth_image,color_image = get_new_images()
         navigate(depth_image,color_image)
 
