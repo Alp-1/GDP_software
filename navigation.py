@@ -426,14 +426,13 @@ try:
     pipeline, profile = initialize_realsense()
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
-    logger.info("Depth Scale is: ", depth_scale)
+    logger.info("Depth Scale is: {}".format( depth_scale))
     vehicle.armed = True
 
     frames = pipeline.wait_for_frames()
     prof = frames.get_profile()
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
     while True:
-        logger.info("\n")
         depth_image,color_image = get_new_images()
         navigate(depth_image,color_image)
 
