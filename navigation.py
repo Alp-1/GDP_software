@@ -23,6 +23,7 @@ vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 obstacle_threshold = 1.0
 deadend_threshold = 1.0
 vegetation_threshold = 0.017
+flipping_threhsold_radians = 0.4
 column_width = 50  # might need adjusting
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
@@ -91,11 +92,24 @@ def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
         mavlink_connection.target_system,  # target system
         mavlink_connection.target_component,  # target component
         mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
-        0b100111100111,  # type_mask (only speeds enabled)
+        0b100111100111,  # type_mask
         0, 0, 0,  # x, y, z positions (not used)
         velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         math.radians(yaw), 0)  # yaw, yaw_rate
+
+
+def mavlink_go_x_meters(distance):
+    mavlink_connection.mav.set_position_target_local_ned_send(
+        0,  # time_boot_ms (not used)
+        mavlink_connection.target_system,  # target system
+        mavlink_connection.target_component,  # target component
+        mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
+        0b110111111100 ,  # type_mask (only position enabled)
+        distance, 0, 0,  # x, y, z positions
+        0, 0, 0,  # x, y, z velocity in m/s
+        0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+        0, 0)  # yaw, yaw_rate
 
 
 # Function to be called whenever HEARTBEAT messages are received
@@ -364,6 +378,18 @@ def is_collision(current_speed, target_speed):
         return False
 
 
+def avoid_flipping():
+    angles = mav_listener.get_imu_data(mavlink_connection)
+    logger.info("Roll: %f; Pitch: %f; Yaw: %f" % (angles[0], angles[1], angles[2]))
+    if abs(angles[0]) > flipping_threhsold_radians or abs(angles[1]) > flipping_threhsold_radians:
+        vehicle.mode = VehicleMode("GUIDED")
+        logger.info("ROVER IS FLIPPING OVER")
+        mavlink_velocity(0,0,0)
+        time.sleep(0.5)
+        mavlink_go_x_meters(-0.4)
+        time.sleep(0.5)
+
+
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(depth_image,color_image,dist):
     logger.info(vehicle.mode.name)
@@ -398,11 +424,13 @@ def navigate(depth_image,color_image):
         current_speed /= 100
         logger.info(f"current speed:{current_speed}") #to test if target speed can be used for collision detection
 
+        avoid_flipping()
         if is_tall_vegetation(depth_image,current_speed):
             logger.info("IN TALL VEGETATION")
             #add command to lower speed in AUTO mode
         if distance < 0.7 * obstacle_threshold:
             logger.info("Obstacle is very close! Stopping")
+            vehicle.mode = VehicleMode("GUIDED")
             mavlink_velocity(0,0,0)
             time.sleep(0.5)
 
@@ -436,7 +464,7 @@ try:
         logger.info("\n")
         depth_image,color_image = get_new_images()
         navigate(depth_image,color_image)
-
+ 
 
 except KeyboardInterrupt:
     logger.info("Script terminated by user")
