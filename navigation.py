@@ -18,7 +18,6 @@ mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)
 mavlink_connection.wait_heartbeat()
 logger.info("Heartbeat from MAVLink system (system %u component %u)" % (
     mavlink_connection.target_system, mavlink_connection.target_component))
-vehicle = connect('/dev/serial0', wait_ready=False, baud=57600)
 
 obstacle_threshold = 1.0
 deadend_threshold = 1.0
@@ -392,10 +391,11 @@ def avoid_flipping():
 
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(depth_image,color_image,dist):
-    logger.info(vehicle.mode.name)
+    vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
+    logger.info(vehicle_mode)
     deadend_status = False
-    if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
-        vehicle.mode = VehicleMode("GUIDED")
+    if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
+        mavlink_connection.set_mode_apm("GUIDED")
         column_index, angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
         logger.info(f"angle:{angle} column:{column_index}")
         if is_deadend(depth_image,column_index):
@@ -418,7 +418,8 @@ def navigate_avoiding_obstacles(depth_image,color_image,dist):
 
 
 def navigate(depth_image,color_image):
-    if vehicle.mode.name == "AUTO" or vehicle.mode.name == "GUIDED":
+    vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
+    if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
         distance = distance_to_obstacle(depth_image)
         current_speed = mav_listener.get_rover_speed(mavlink_connection)
         current_speed /= 100
@@ -436,11 +437,11 @@ def navigate(depth_image,color_image):
 
         if distance < obstacle_threshold:
             logger.info("Obstacle detected! Taking evasive action.")
-            vehicle.mode = VehicleMode("GUIDED")
+            mavlink_connection.set_mode_apm("GUIDED")
             navigate_avoiding_obstacles(depth_image,color_image,distance)
         else:
             logger.info("no obstacle ahead")
-            vehicle.mode = VehicleMode("AUTO")
+            mavlink_connection.set_mode_apm("AUTO")
 
 
 # Main execution loop
@@ -454,14 +455,13 @@ try:
     pipeline, profile = initialize_realsense()
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
-    logger.info("Depth Scale is: ", depth_scale)
-    vehicle.armed = True
+    logger.info("Depth Scale is: {}".format( depth_scale))
+    mavlink_connection.arducopter_arm()
 
     frames = pipeline.wait_for_frames()
     prof = frames.get_profile()
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
     while True:
-        logger.info("\n")
         depth_image,color_image = get_new_images()
         navigate(depth_image,color_image)
  
@@ -472,6 +472,5 @@ except KeyboardInterrupt:
 finally:
     pipeline.stop()
     cv2.destroyAllWindows()
-    vehicle.close()
     mavlink_connection.close()
     logger.info("Connection closed.")
