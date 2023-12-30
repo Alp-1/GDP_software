@@ -381,7 +381,7 @@ def avoid_flipping():
     angles = mav_listener.get_imu_data(mavlink_connection)
     logger.info("Roll: %f; Pitch: %f; Yaw: %f" % (angles[0], angles[1], angles[2]))
     if abs(angles[0]) > flipping_threhsold_radians or abs(angles[1]) > flipping_threhsold_radians:
-        vehicle.mode = VehicleMode("GUIDED")
+        mavlink_connection.set_mode_apm("GUIDED")
         logger.info("ROVER IS FLIPPING OVER")
         mavlink_velocity(0,0,0)
         time.sleep(0.5)
@@ -431,7 +431,7 @@ def navigate(depth_image,color_image):
             #add command to lower speed in AUTO mode
         if distance < 0.7 * obstacle_threshold:
             logger.info("Obstacle is very close! Stopping")
-            vehicle.mode = VehicleMode("GUIDED")
+            mavlink_connection.set_mode_apm("GUIDED")
             mavlink_velocity(0,0,0)
             time.sleep(0.5)
 

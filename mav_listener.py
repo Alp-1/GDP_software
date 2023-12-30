@@ -91,6 +91,14 @@ def get_wheel_distances(mavlink_connection):
     return wheel_distance_msg.distance[0], wheel_distance_msg.distance[1]
 
 
+def get_imu_data(mavlink_connection):
+    """Return the imu data as an array of [roll, pitch, yaw]"""
+    msg = wait_for_msg(mavlink_connection, "ATTITUDE")
+    result = [msg.roll, msg.pitch, msg.yaw]
+
+    return result
+
+
 def initialise_mavlink(connection_string="/dev/serial0", baud=57600):
     """Initialise mavlink connection"""
     mavlink_connection = mavutil.mavlink_connection(connection_string, baud=baud)
