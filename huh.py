@@ -107,6 +107,7 @@ def distance_to_obstacle(depth_image, slope_grid):
     for row_index in range(slope_grid.shape[0]):
         for col_index in range(3,5):
             if slope_grid[row_index][col_index] > 30:
+                print(f'slope:{slope_grid[row_index][col_index]}')
                 # danger_squares.append((row_index,col_index))
                 print(row_index,col_index)
                 patch_start_row = (row_index)*patch_height
@@ -148,7 +149,7 @@ try:
         # mask = clf.get_semantic_map(color_image)
         # plt.imshow(mask)
         slope_grid = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
-        print(distance_to_obstacle(depth_image,slope_grid))
+        print(f'distance:{distance_to_obstacle(depth_image,slope_grid)}')
         time.sleep(3)
 except KeyboardInterrupt:
     logger.info("Script terminated by user")
