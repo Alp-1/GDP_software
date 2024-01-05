@@ -68,7 +68,7 @@ if __name__ == "__main__":
         print("GNSS reciever is not on")
         exit(1)
     BAUDRATE = 57600
-    TIMEOUT = 10
+    TIMEOUT = 30
 
     # NTRIP caster parameters - AMEND AS REQUIRED:
     # Ideally, mountpoint should be <30 km from location.
@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     # NMEA GGA sentence status - AMEND AS REQUIRED:
     GGAMODE = 0  # use fixed reference position (0 = use live position)
-    GGAINT = 10  # interval in seconds (-1 = do not send NMEA GGA sentences)
+    GGAINT = 5  # interval in seconds (-1 = do not send NMEA GGA sentences)
     # Fixed reference coordinates (only used when GGAMODE = 1) - AMEND AS REQUIRED:
     REFLAT = 51.176534
     REFLON = -2.15453
