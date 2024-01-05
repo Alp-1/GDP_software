@@ -228,15 +228,15 @@ def deadend_protocol():
     time.sleep(1)
     mavlink_turn(0, 0, 0, 45)
     time.sleep(1)
-    depth_image,color_image = get_new_images()
-    new_column, new_angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
+    steering_image, depth_image,color_image = get_new_images()
+    new_column, new_angle = find_clear_path_and_calculate_direction(steering_image, rover_width)
     if not is_deadend(depth_image, new_column):
         movement_commands(new_angle)
     else:
         mavlink_turn(0, 0, 0, 270)
         time.sleep(1)
-        depth_image, color_image = get_new_images()
-        new_column, new_angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
+        steering_image, depth_image, color_image = get_new_images()
+        new_column, new_angle = find_clear_path_and_calculate_direction(steering_image, rover_width)
         if not is_deadend(depth_image,new_column):
             movement_commands(new_angle)
         else:
