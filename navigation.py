@@ -164,6 +164,27 @@ def apply_filters(depth_frame):
     return frame
 
 
+def get_thresholded_image(depth_frame):
+    distance_limit = 4.0
+    decimation = rs.decimation_filter()
+    spatial = rs.spatial_filter()
+    spatial.set_option(rs.option.holes_fill, 5)  # do I still need hole filling???
+    hole_filling = rs.hole_filling_filter(2)  # use min of neighbour cells,might need changing
+    depth_to_disparity = rs.disparity_transform(True)
+    disparity_to_depth = rs.disparity_transform(False)
+
+    frame = depth_frame
+    frame = decimation.process(frame)
+    frame = depth_to_disparity.process(frame)
+    frame = spatial.process(frame)
+    frame = disparity_to_depth.process(frame)
+    frame = hole_filling.process(frame)
+
+    depth_image = np.asanyarray(frame.get_data()) * depth_scale
+    depth_image[depth_image>distance_limit] = distance_limit
+
+    return depth_image
+
 def get_new_images(frames):
     depth_frame = frames.get_depth_frame()
     color_frame = frames.get_color_frame()
@@ -171,12 +192,13 @@ def get_new_images(frames):
         logger.info("problems")
 
     color_image = np.asanyarray(color_frame.get_data())
+    steering_image = get_thresholded_image(depth_frame)
     depth_frame = apply_filters(depth_frame)
     depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
 
     # num_zeros = np.count_nonzero(depth_image == 0)
     # logger.info(f"Number of zero values in depth image:{num_zeros}")
-    return depth_image,color_image
+    return steering_image, depth_image, color_image
 
 
 def is_deadend(depth_image,direction_column):
@@ -276,12 +298,12 @@ def clearest_path(depth_image):
 
 
 # Function to find a clear path and calculate its direction
-def find_clear_path_and_calculate_direction(depth_image, rover_width):
+def find_clear_path_and_calculate_direction(steering_image, depth_image, rover_width):
 
     # column_means = np.mean(depth_image_meters, axis=0)
     # index_of_highest_mean = np.argmax(column_means)
-    index_of_highest_mean = clearest_path(depth_image)
-    angle = index_of_highest_mean / depth_image.shape[1] * 87 - (87 / 2)
+    index_of_highest_mean = clearest_path(steering_image)
+    angle = index_of_highest_mean / steering_image.shape[1] * 87 - (87 / 2)
     angle =(angle+360) % 360
     return index_of_highest_mean, angle
 
@@ -376,13 +398,13 @@ def avoid_flipping():
 
 
 # Function to navigate while avoiding obstacles
-def navigate_avoiding_obstacles(depth_image,color_image,dist,camera_angle):
+def navigate_avoiding_obstacles(steering_image, depth_image,color_image,dist,camera_angle):
     vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
     logger.info(vehicle_mode)
     deadend_status = False
     if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
         mavlink_connection.set_mode_apm("GUIDED")
-        column_index, angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
+        column_index, angle = find_clear_path_and_calculate_direction(steering_image, depth_image, rover_width)
         logger.info(f"direction:{angle} column:{column_index}")
         if is_deadend(depth_image,column_index):
             logger.info("deadend")
@@ -403,7 +425,10 @@ def navigate_avoiding_obstacles(depth_image,color_image,dist,camera_angle):
             movement_commands(angle)
 
 
-def navigate(depth_image,color_image,camera_angle):
+def navigate():
+    frames = pipeline.wait_for_frames()
+    steering_image, depth_image, color_image = get_new_images(frames)
+    camera_angle = cam.get_camera_angle(frames)
     vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
     if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
         distance = distance_to_obstacle(depth_image)
@@ -426,7 +451,7 @@ def navigate(depth_image,color_image,camera_angle):
             mavlink_connection.set_mode_apm("GUIDED")
             mavlink_velocity(0, 0, 0)
             time.sleep(0.5)
-            navigate_avoiding_obstacles(depth_image,color_image,distance,camera_angle)
+            navigate_avoiding_obstacles(steering_image, depth_image,color_image,distance,camera_angle)
         else:
             logger.info("no obstacle ahead")
             mavlink_connection.set_mode_apm("AUTO")
@@ -451,10 +476,7 @@ try:
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
     cam.initialize_angle(frames)
     while True:
-        frames = pipeline.wait_for_frames()
-        depth_image,color_image = get_new_images(frames)
-        angle = cam.get_camera_angle(frames)
-        navigate(depth_image,color_image,angle)
+        navigate()
  
 
 except KeyboardInterrupt:
