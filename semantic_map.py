@@ -31,8 +31,6 @@ class SemanticSegmentation:
     def get_semantic_map(self, img):
         start_time = time.time()
         features = self.extract_features(img)
-        print("Extracting features: --- %s seconds ---" % (time.time() - start_time))
         result = future.predict_segmenter(features, self.model)
-        print("Segmenting image: --- %s seconds ---" % (time.time() - start_time))
         return result
 

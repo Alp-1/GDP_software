@@ -29,7 +29,7 @@ column_width = 50  # might need adjusting
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
 folder_name = ""
-
+pitch_threshold = 30
 
 def create_folder(folder_name):
     # Create a folder if it doesn't exist
