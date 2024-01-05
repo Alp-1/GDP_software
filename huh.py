@@ -150,6 +150,7 @@ try:
         # mask = clf.get_semantic_map(color_image)
         # plt.imshow(mask)
         slope_grid = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
+        print(slope_grid)
         print(f'distance:{distance_to_obstacle(depth_image,slope_grid)}')
         time.sleep(3)
 except KeyboardInterrupt:
