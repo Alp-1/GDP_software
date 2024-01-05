@@ -10,6 +10,7 @@ import geometric_map as geo
 import mav_listener
 from logging_config import setup_custom_logger
 import camera_angle as cam
+from semantic_map import SemanticSegmentation
 
 logger = setup_custom_logger("navigation")
 
@@ -415,6 +416,10 @@ def navigate_avoiding_obstacles(steering_image, depth_image,color_image,dist,cam
         slope_grid = geo.get_slope_grid(depth_image, depth_intrinsics,camera_angle)
         logger.info("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
 
+        start_time = time.time()
+        mask = clf.get_semantic_map(color_image)
+        logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
+
         gap_height,gap_width = gap_size(depth_image, column_index)
         save_data_to_txt(dist,slope_grid, angle, deadend_status, gap_height,gap_width, current_time)
         save_rgb_image(color_image, current_time)
@@ -474,6 +479,7 @@ try:
     frames = pipeline.wait_for_frames()
     prof = frames.get_profile()
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
+    clf = SemanticSegmentation()
     cam.initialize_angle(frames)
     while True:
         navigate()
