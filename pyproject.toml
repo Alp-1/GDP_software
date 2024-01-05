@@ -1,0 +1,21 @@
+[project]
+name = "gdp-software"
+version = "0.1.0"
+description = "The software for GDP group 16 - A low-cost approach for autonomous forest navigation and obstacle avoidance using mobile robots"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "BSD-3-Clause"}
+dependencies = [
+    "pytest==7.4.2",
+    "pytest-mock==3.12.0",
+]
+
+[project.optional-dependencies]
+dev-vscode = ["micropython-rp2-pico-stubs==1.20.0.post3"]
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["motor_controller", "central_hub", "user_interface"]
