@@ -114,7 +114,7 @@ def distance_to_obstacle(depth_image, slope_grid):
                 print(patch_start_row,patch_start_column)
                 patch_end_row = patch_start_row+patch_height
                 patch_end_column = patch_start_column+patch_width
-                closest_in_patch = min(depth_image[patch_start_row:patch_end_row,patch_start_column:patch_end_column])
+                closest_in_patch = np.min(depth_image[patch_start_row:patch_end_row,patch_start_column:patch_end_column])
                 min_distance = min(min_distance,closest_in_patch)
 
 
