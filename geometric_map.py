@@ -60,7 +60,7 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
 
         adjusted_pcd = copy.deepcopy(downpcd)
         adjusted_pcd.rotate(rotation_matrix)
-        pcds.append(adjusted_pcd)
+        # pcds.append(adjusted_pcd)
 
         if len(downpcd.points)>30:
             plane_model, inliers = adjusted_pcd.segment_plane(distance_threshold=0.05,ransac_n=3,num_iterations=1000)
@@ -81,7 +81,7 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
         else:
             j += 1
 
-    return slope_grid, pcds
+    return slope_grid
 
 def save_pointcloud():
     return 0
