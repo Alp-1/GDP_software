@@ -9,6 +9,7 @@ from dronekit import *
 import geometric_map as geo
 import mav_listener
 from logging_config import setup_custom_logger
+import camera_angle as cam
 
 logger = setup_custom_logger("navigation")
 
@@ -22,7 +23,7 @@ logger.info("Heartbeat from MAVLink system (system %u component %u)" % (
 obstacle_threshold = 1.0
 deadend_threshold = 1.0
 vegetation_threshold = 0.017
-flipping_threhsold_radians = 0.4
+flipping_threshold_radians = 0.4
 column_width = 50  # might need adjusting
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
@@ -163,8 +164,7 @@ def apply_filters(depth_frame):
     return frame
 
 
-def get_new_images():
-    frames = pipeline.wait_for_frames()
+def get_new_images(frames):
     depth_frame = frames.get_depth_frame()
     color_frame = frames.get_color_frame()
     if not depth_frame or not color_frame:
@@ -286,20 +286,6 @@ def find_clear_path_and_calculate_direction(depth_image, rover_width):
     return index_of_highest_mean, angle
 
 
-def detect_tall_vegetation(depth_image):
-    """
-    Detect tall vegetation in the path.
-    This is a placeholder function; you need to replace it with actual logic based on your sensor setup.
-    """
-    # Placeholder: Assume we detect vegetation if the mean depth in the central area is less than a threshold
-    central_area = depth_image[:, depth_image.shape[1] // 2]
-    mean_depth = np.mean(central_area)
-    if mean_depth < vegetation_threshold:  # vegetation_threshold is a predefined constant
-        return True
-    else:
-        return False
-
-
 def gap_size(depth_image, column):
     gap_threshold = 0.5
     # start_row = depth_image.shape[0] // 2
@@ -380,7 +366,7 @@ def is_collision(current_speed, target_speed):
 def avoid_flipping():
     angles = mav_listener.get_imu_data(mavlink_connection)
     logger.info("Roll: %f; Pitch: %f; Yaw: %f" % (angles[0], angles[1], angles[2]))
-    if abs(angles[0]) > flipping_threhsold_radians or abs(angles[1]) > flipping_threhsold_radians:
+    if abs(angles[0]) > flipping_threshold_radians or abs(angles[1]) > flipping_threshold_radians:
         mavlink_connection.set_mode_apm("GUIDED")
         logger.info("ROVER IS FLIPPING OVER")
         mavlink_velocity(0,0,0)
@@ -390,21 +376,21 @@ def avoid_flipping():
 
 
 # Function to navigate while avoiding obstacles
-def navigate_avoiding_obstacles(depth_image,color_image,dist):
+def navigate_avoiding_obstacles(depth_image,color_image,dist,camera_angle):
     vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
     logger.info(vehicle_mode)
     deadend_status = False
     if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
         mavlink_connection.set_mode_apm("GUIDED")
         column_index, angle = find_clear_path_and_calculate_direction(depth_image, rover_width)
-        logger.info(f"angle:{angle} column:{column_index}")
+        logger.info(f"direction:{angle} column:{column_index}")
         if is_deadend(depth_image,column_index):
             logger.info("deadend")
             deadend_status = True
 
         current_time = datetime.now().strftime("%H-%M-%S")
         start_time = time.time()
-        slope_grid = geo.get_slope_grid(depth_image, depth_intrinsics)
+        slope_grid = geo.get_slope_grid(depth_image, depth_intrinsics,camera_angle)
         logger.info("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
 
         gap_height,gap_width = gap_size(depth_image, column_index)
@@ -417,7 +403,7 @@ def navigate_avoiding_obstacles(depth_image,color_image,dist):
             movement_commands(angle)
 
 
-def navigate(depth_image,color_image):
+def navigate(depth_image,color_image,camera_angle):
     vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
     if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
         distance = distance_to_obstacle(depth_image)
@@ -438,7 +424,9 @@ def navigate(depth_image,color_image):
         if distance < obstacle_threshold:
             logger.info("Obstacle detected! Taking evasive action.")
             mavlink_connection.set_mode_apm("GUIDED")
-            navigate_avoiding_obstacles(depth_image,color_image,distance)
+            mavlink_velocity(0, 0, 0)
+            time.sleep(0.5)
+            navigate_avoiding_obstacles(depth_image,color_image,distance,camera_angle)
         else:
             logger.info("no obstacle ahead")
             mavlink_connection.set_mode_apm("AUTO")
@@ -461,9 +449,12 @@ try:
     frames = pipeline.wait_for_frames()
     prof = frames.get_profile()
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
+    cam.initialize_angle(frames)
     while True:
-        depth_image,color_image = get_new_images()
-        navigate(depth_image,color_image)
+        frames = pipeline.wait_for_frames()
+        depth_image,color_image = get_new_images(frames)
+        angle = cam.get_camera_angle(frames)
+        navigate(depth_image,color_image,angle)
  
 
 except KeyboardInterrupt:
