@@ -141,6 +141,7 @@ try:
         frames = pipeline.wait_for_frames()
         steering_image, depth_image, color_image = get_new_images(frames)
         angle = cam.get_camera_angle(frames)
+        print(f'camera angle:{angle}')
         # print(angle)
         # print(depth_image[depth_image.shape[0]//2][depth_image.shape[1]//2])
         # print(steering_image[steering_image.shape[0]//2][steering_image.shape[1]//2])
