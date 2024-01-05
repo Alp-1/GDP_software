@@ -91,6 +91,33 @@ def get_wheel_distances(mavlink_connection):
     return wheel_distance_msg.distance[0], wheel_distance_msg.distance[1]
 
 
+def set_message_interval(mavlink_connection, msg_id, interval_us):
+    """Set the interval between messages in microseconds"""
+    mavlink_connection.mav.command_long_send(
+        mavlink_connection.target_system,
+        mavlink_connection.target_component,
+        mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL,
+        0,
+        msg_id,
+        interval_us,
+        0,
+        0,
+        0,
+        0,
+        0,
+    )
+    # Wait for a response (blocking) to the MAV_CMD_SET_MESSAGE_INTERVAL command and print result
+    response = mavlink_connection.recv_match(type="COMMAND_ACK", blocking=True)
+    if (
+        response
+        and response.command == mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL
+        and response.result == mavutil.mavlink.MAV_RESULT_ACCEPTED
+    ):
+        print("Command accepted")
+    else:
+        print("Command failed")
+
+
 def get_imu_data(mavlink_connection):
     """Return the imu data as an array of [roll, pitch, yaw]"""
     msg = wait_for_msg(mavlink_connection, "ATTITUDE")
