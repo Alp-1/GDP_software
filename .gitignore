@@ -3,5 +3,15 @@ dist
 *.egg
 *.egg-info
 
+# Python
 .cache
 *__pycache__*
+.venv*/
+*.egg-info/*
+*.pyc
+__pycache__/
+
+# Pytest
+.pytest_cache/
+
+
