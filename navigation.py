@@ -230,7 +230,7 @@ def deadend_protocol():
     time.sleep(1)
     frames = pipeline.wait_for_frames()
     steering_image, depth_image,color_image = get_new_images(frames)
-    new_column, new_angle = find_clear_path_and_calculate_direction(steering_image, rover_width)
+    new_column, new_angle = find_clear_path_and_calculate_direction(steering_image, depth_image,rover_width)
     if not is_deadend(depth_image, new_column):
         movement_commands(new_angle)
     else:
@@ -238,7 +238,7 @@ def deadend_protocol():
         time.sleep(1)
         frames = pipeline.wait_for_frames()
         steering_image, depth_image, color_image = get_new_images(frames)
-        new_column, new_angle = find_clear_path_and_calculate_direction(steering_image, rover_width)
+        new_column, new_angle = find_clear_path_and_calculate_direction(steering_image, depth_image,rover_width)
         if not is_deadend(depth_image,new_column):
             movement_commands(new_angle)
         else:
