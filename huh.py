@@ -92,6 +92,34 @@ def get_new_images(frames):
     return steering_image, depth_image, color_image
 
 
+def distance_to_obstacle(depth_image, slope_grid):
+    pitch_threshold = 30
+    danger_squares = []
+    central_width = slope_grid.shape[1] // 4
+    central_height = 2
+    min_distance = 999
+
+    start_row = (slope_grid.shape[0] - central_height) // 2
+    start_col = (slope_grid.shape[1] - central_width) //  2
+    patch_height = (depth_image.shape[0]//slope_grid.shape[0])
+    patch_width = (depth_image.shape[1]//slope_grid.shape[1])
+    print(patch_height,patch_width)
+    for row_index in range(slope_grid.shape[0]):
+        for col_index in range(3,5):
+            if slope_grid[row_index][col_index] > 30:
+                # danger_squares.append((row_index,col_index))
+                print(row_index,col_index)
+                patch_start_row = (row_index)*patch_height
+                patch_start_column = (col_index)*patch_width
+                print(patch_start_row,patch_start_column)
+                patch_end_row = patch_start_row+patch_height
+                patch_end_column = patch_start_column+patch_width
+                closest_in_patch = min(depth_image[patch_start_row:patch_end_row,patch_start_column:patch_end_column])
+                min_distance = min(min_distance,closest_in_patch)
+
+
+    return min_distance
+
 # Main execution loop
 try:
 
@@ -111,14 +139,16 @@ try:
         frames = pipeline.wait_for_frames()
         steering_image, depth_image, color_image = get_new_images(frames)
         angle = cam.get_camera_angle(frames)
-        print(angle)
-        print(depth_image[depth_image.shape[0]//2][depth_image.shape[1]//2])
-        print(steering_image[steering_image.shape[0]//2][steering_image.shape[1]//2])
-        start_time = time.time()
-        print(geo.get_slope_grid(depth_image,depth_intrinsics,angle))
-        print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
-        mask = clf.get_semantic_map(color_image)
-        plt.imshow(mask)
+        # print(angle)
+        # print(depth_image[depth_image.shape[0]//2][depth_image.shape[1]//2])
+        # print(steering_image[steering_image.shape[0]//2][steering_image.shape[1]//2])
+        # start_time = time.time()
+        # print(geo.get_slope_grid(depth_image,depth_intrinsics,angle))
+        # print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
+        # mask = clf.get_semantic_map(color_image)
+        # plt.imshow(mask)
+        slope_grid = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
+        print(distance_to_obstacle(depth_image,slope_grid))
         time.sleep(3)
 except KeyboardInterrupt:
     logger.info("Script terminated by user")
