@@ -122,7 +122,7 @@ def distance_to_obstacle(depth_image, slope_grid):
 
     return min_distance
 
-def new_obstacle_dist(depth_image,slope_grid, outlier_clouds):
+def new_obstacle_dist(depth_image,slope_grid, outlier_points):
     min_distance = 999
     # Calculate the size of the central square
     central_width = depth_image.shape[1] // 4
@@ -144,8 +144,9 @@ def new_obstacle_dist(depth_image,slope_grid, outlier_clouds):
                 dist = depth_image[i,j]
                 print(dist)
                 point = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [i, j], dist)
-                print(point)
-
+                rounded_point = np.round(point,decimals=2)
+                if rounded_point in outlier_points:
+                    print(point)
 # Main execution loop
 try:
 
@@ -180,8 +181,8 @@ try:
         # print(slope_grid)
         # # print(f'distance:{distance_to_obstacle(depth_image,slope_grid)}')
 
-        # new_obstacle_dist(depth_image,1,2)
-        time.sleep(3)
+        new_obstacle_dist(depth_image,1,central_outlier_points)
+        time.sleep(10)
 except KeyboardInterrupt:
     logger.info("Script terminated by user")
 
