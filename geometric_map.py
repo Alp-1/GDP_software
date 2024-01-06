@@ -55,7 +55,7 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
         adjusted_pcd = copy.deepcopy(downpcd)
         # adjusted_pcd.rotate(rotation_matrix)
         # pcds.append(adjusted_pcd)
-
+        print(len(downpcd.points))
         if len(downpcd.points)>30:
             plane_model, inliers = adjusted_pcd.segment_plane(distance_threshold=0.05,ransac_n=3,num_iterations=1000)
             [a, b, c, d] = plane_model
