@@ -64,7 +64,8 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
             inlier_cloud.paint_uniform_color([1.0, 0, 0])
             outlier_cloud = pcd.select_by_index(inliers, invert=True)
 
-            print(outlier_cloud[:5])
+            outlier_points = np.asarray(outlier_cloud.points)
+            print(outlier_points[:5])
             if a == 0:
                 pitch_degrees = 90
             else:
