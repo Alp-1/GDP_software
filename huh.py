@@ -122,6 +122,29 @@ def distance_to_obstacle(depth_image, slope_grid):
 
     return min_distance
 
+def new_obstacle_dist(depth_image,slope_grid, outlier_clouds):
+    min_distance = 999
+    # Calculate the size of the central square
+    central_width = depth_image.shape[1] // 4
+    central_height = depth_image.shape[0] // 40
+
+    # Calculate the starting indices for the central square
+    start_row = (depth_image.shape[0] - central_height) // 2
+    start_col = (depth_image.shape[1] - central_width) // 2
+
+    # Select the central square
+    central_square = depth_image[start_row:start_row + central_height, start_col:start_col + central_width]
+
+    # Create a masked array where 0 values are masked
+    masked_array = np.ma.masked_where(central_square == 0, central_square)
+    for i in range(start_row,start_row+central_height):
+        for j in range(start_col,start_col+central_width):
+            print(f'pixel:{i} {j}')
+            dist = depth_image[i,j]
+            print(dist)
+            point = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [i, j], dist)
+            print(point)
+
 # Main execution loop
 try:
 
@@ -140,21 +163,22 @@ try:
     while True:
         frames = pipeline.wait_for_frames()
         steering_image, depth_image, color_image = get_new_images(frames)
-        angle = cam.get_camera_angle(frames)
-        print(f'camera angle:{angle}')
-        # print(angle)
-        # print(depth_image[depth_image.shape[0]//2][depth_image.shape[1]//2])
-        # print(steering_image[steering_image.shape[0]//2][steering_image.shape[1]//2])
-        start_time = time.time()
-        print(geo.get_slope_grid(depth_image,depth_intrinsics,angle))
-        print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
-        start_time = time.time()
-        mask = clf.get_semantic_map(color_image)
-        logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
-        # plt.imshow(mask)
-        slope_grid = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
-        print(slope_grid)
-        # print(f'distance:{distance_to_obstacle(depth_image,slope_grid)}')
+
+        # angle = cam.get_camera_angle(frames)
+        # print(f'camera angle:{angle}')
+
+        # start_time = time.time()
+        # print(geo.get_slope_grid(depth_image,depth_intrinsics,angle))
+        # print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
+        # start_time = time.time()
+        # mask = clf.get_semantic_map(color_image)
+        # logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
+        # # plt.imshow(mask)
+        # slope_grid = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
+        # print(slope_grid)
+        # # print(f'distance:{distance_to_obstacle(depth_image,slope_grid)}')
+
+        new_obstacle_dist(depth_image,1,2)
         time.sleep(3)
 except KeyboardInterrupt:
     logger.info("Script terminated by user")
