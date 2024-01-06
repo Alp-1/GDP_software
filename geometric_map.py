@@ -51,10 +51,13 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
             if a == 0:
                 pitch_degrees = 90
             else:
-                print(f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
                 pitch_cos = math.cos(b / math.sqrt(math.pow(a, 2) + math.pow(b, 2) + math.pow(c, 2)))
+                print(pitch_cos)
                 pitch = math.acos(pitch_cos)
+                print(f'radians:{pitch}')
                 pitch_degrees = math.degrees(pitch)
+                print(f"{i} {j}: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0   pitch:{pitch_degrees}")
+
         else:
             pitch_degrees = 90
         slope_grid[i, j] = pitch_degrees
