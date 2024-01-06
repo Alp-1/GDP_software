@@ -43,6 +43,7 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
     j = 0
     slope_grid = np.zeros((grid_n, grid_m))
     pcds = []
+    # central_outliers =
     for cell in np_grid:
         image_o3d = o3d.geometry.Image(cell.astype(np.float32))
         pcd = o3d.geometry.PointCloud.create_from_depth_image(
@@ -64,8 +65,10 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
             inlier_cloud.paint_uniform_color([1.0, 0, 0])
             outlier_cloud = pcd.select_by_index(inliers, invert=True)
 
-            outlier_points = np.asarray(outlier_cloud.points)
-            print(outlier_points[:5])
+            if j==1 or j==2:
+                outlier_points = np.asarray(outlier_cloud.points)
+                print(f'nr of outlier points: {len(outlier_points)}')
+                print(outlier_points[:5])
             if a == 0:
                 pitch_degrees = 90
             else:

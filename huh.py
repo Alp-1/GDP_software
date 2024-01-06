@@ -165,12 +165,12 @@ try:
         frames = pipeline.wait_for_frames()
         steering_image, depth_image, color_image = get_new_images(frames)
 
-        # angle = cam.get_camera_angle(frames)
-        # print(f'camera angle:{angle}')
+        angle = cam.get_camera_angle(frames)
+        print(f'camera angle:{angle}')
 
-        # start_time = time.time()
-        # print(geo.get_slope_grid(depth_image,depth_intrinsics,angle))
-        # print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
+        start_time = time.time()
+        print(geo.get_slope_grid(depth_image,depth_intrinsics,angle))
+        print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
         # start_time = time.time()
         # mask = clf.get_semantic_map(color_image)
         # logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
@@ -179,7 +179,7 @@ try:
         # print(slope_grid)
         # # print(f'distance:{distance_to_obstacle(depth_image,slope_grid)}')
 
-        new_obstacle_dist(depth_image,1,2)
+        # new_obstacle_dist(depth_image,1,2)
         time.sleep(3)
 except KeyboardInterrupt:
     logger.info("Script terminated by user")
