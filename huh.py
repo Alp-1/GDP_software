@@ -125,7 +125,7 @@ def distance_to_obstacle(depth_image, slope_grid):
 # Main execution loop
 try:
 
-
+    np.set_printoptions(suppress=True,precision=2)
     pipeline, profile = initialize_realsense()
     depth_sensor = profile.get_device().first_depth_sensor()
     depth_scale = depth_sensor.get_depth_scale()
