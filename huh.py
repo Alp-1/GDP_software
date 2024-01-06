@@ -123,6 +123,7 @@ def distance_to_obstacle(depth_image, slope_grid):
     return min_distance
 
 def new_obstacle_dist(depth_image,slope_grid, outlier_points):
+    print(outlier_points[:10])
     min_distance = 999
     # Calculate the size of the central square
     central_width = depth_image.shape[1] // 4
@@ -134,7 +135,7 @@ def new_obstacle_dist(depth_image,slope_grid, outlier_points):
 
     # Select the central square
     central_square = depth_image[start_row:start_row + central_height, start_col:start_col + central_width]
-
+    printed = False
     # Create a masked array where 0 values are masked
     masked_array = np.ma.masked_where(central_square == 0, central_square)
     for i in range(start_row,start_row+central_height):
@@ -143,6 +144,9 @@ def new_obstacle_dist(depth_image,slope_grid, outlier_points):
                 dist = depth_image[i,j]
                 point = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [i, j], dist)
                 rounded_point = np.round(point,decimals=2)
+                if not printed:
+                    print(rounded_point)
+                    printed = True
                 if rounded_point in outlier_points:
                     print(f'pixel:{i} {j}')
                     print(point)

@@ -100,4 +100,5 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
         else:
             j += 1
     print(central_outliers.shape)
+    central_outliers[:, 2] *= -1
     return slope_grid, central_outliers
