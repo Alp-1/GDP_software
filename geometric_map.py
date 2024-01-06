@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 
 # cell_height = 60
 # cell_width = 106 #miert??
-grid_n = 8
+grid_n = 12
 grid_m = 8
 
 #!!!changed: 10x10 grid
@@ -35,8 +35,8 @@ def direction_to_euler_angles(direction):
 
 def get_slope_grid(depth_image,depth_intrinsics,angles):
     rotation_matrix = o3d.geometry.get_rotation_matrix_from_zyx((math.radians(angles[0]),0,math.radians(angles[2])))
-    cell_height = int(depth_image.shape[0] // 10)
-    cell_width = int(depth_image.shape[1] // 10)
+    cell_height = int(depth_image.shape[0] // 12)
+    cell_width = int(depth_image.shape[1] // 8)
     depth_grid = scipy.sparse.bsr_matrix(depth_image, blocksize=(cell_height, cell_width), dtype=np.float32).data
     np_grid = np.asanyarray(depth_grid)
     i = 0
@@ -75,7 +75,7 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
             pitch_degrees = 90
         slope_grid[i, j] = pitch_degrees
 
-        if j == (grid_n - 1):
+        if j == (grid_m - 1):
             i += 1
             j = 0
         else:
