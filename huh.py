@@ -140,12 +140,11 @@ def new_obstacle_dist(depth_image,slope_grid, outlier_points):
     for i in range(start_row,start_row+central_height):
         for j in range(start_col,start_col+central_width):
             if depth_image[i,j] != 0:
-                print(f'pixel:{i} {j}')
                 dist = depth_image[i,j]
-                print(dist)
                 point = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [i, j], dist)
                 rounded_point = np.round(point,decimals=2)
                 if rounded_point in outlier_points:
+                    print(f'pixel:{i} {j}')
                     print(point)
 # Main execution loop
 try:
@@ -180,8 +179,9 @@ try:
         # slope_grid = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
         # print(slope_grid)
         # # print(f'distance:{distance_to_obstacle(depth_image,slope_grid)}')
-
+        start_time = time.time()
         new_obstacle_dist(depth_image,1,central_outlier_points)
+        print("Obstacle detection: --- %s seconds ---" % (time.time() - start_time))
         time.sleep(10)
 except KeyboardInterrupt:
     logger.info("Script terminated by user")
