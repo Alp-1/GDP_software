@@ -139,11 +139,12 @@ def new_obstacle_dist(depth_image,slope_grid, outlier_clouds):
     masked_array = np.ma.masked_where(central_square == 0, central_square)
     for i in range(start_row,start_row+central_height):
         for j in range(start_col,start_col+central_width):
-            print(f'pixel:{i} {j}')
-            dist = depth_image[i,j]
-            print(dist)
-            point = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [i, j], dist)
-            print(point)
+            if depth_image[i,j] != 0:
+                print(f'pixel:{i} {j}')
+                dist = depth_image[i,j]
+                print(dist)
+                point = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [i, j], dist)
+                print(point)
 
 # Main execution loop
 try:
