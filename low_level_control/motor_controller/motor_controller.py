@@ -160,14 +160,14 @@ class MotorController:
             turn = -turn if turn is not None else None
 
         if turn is not None:
-            left_speed = self.convert(
+            left_speed = self.map_range(
                 left_speed,
                 -100,
                 100,
                 self.mixed_clipped_range[0],
                 self.mixed_clipped_range[1],
             )
-            turn = self.convert(
+            turn = self.map_range(
                 turn,
                 -100,
                 100,
@@ -235,8 +235,8 @@ class MotorController:
         return (-clipped_range / 2, clipped_range / 2)  # Assume the output is symmetric
 
     @staticmethod
-    def convert(x, in_min, in_max, out_min, out_max):
-        # Will return a float
+    def map_range(x, in_min, in_max, out_min, out_max):
+        """Map a value from one range to another. Will return a float"""
         return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
     def send_currents(self):
@@ -288,7 +288,7 @@ class MotorController:
             if command_type == Commands.SET_SPEED_MIXED:
                 self.left_speed_command, self.turn = command_value
                 print(
-                    "Left: {:.2f} Turn: {:.2f}".format(
+                    "Speed: {:.2f} Turn: {:.2f}".format(
                         self.left_speed_command, self.turn
                     )
                 )
