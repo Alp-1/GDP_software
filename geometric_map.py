@@ -67,6 +67,7 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
 
             if j==1 or j==2:
                 outlier_points = np.asarray(outlier_cloud.points)
+                print(f'outliers shape:{outlier_points.shape}')
                 np.vstack((central_outliers, outlier_points))
 
                 # Find the index of the smallest number in each sublist
