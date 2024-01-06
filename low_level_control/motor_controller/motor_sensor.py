@@ -6,7 +6,7 @@ from motor_controller.encoder import Encoder
 class MotorSensing:
     """Class to sense the parameters of a motor"""
 
-    PPR = 2448  # Pulses per revolution of the encoder
+    PPR = 2448  # Pulses per revolution of the encoder (12*4*51)
 
     def __init__(
         self,
@@ -15,7 +15,7 @@ class MotorSensing:
         adc_in: int,
         invert_current: bool = False,
     ):
-        """Initialize the motor.
+        """Initialise motor feedback components.
 
         Parameters
         ----------

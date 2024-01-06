@@ -2,7 +2,7 @@
 
 import time
 from machine import Pin, UART
-from motor_controller.motor import MotorSensing
+from low_level_control.motor_controller.motor_sensor import MotorSensing
 from motor_controller.sabertooth import Sabertooth
 from motor_controller.pid import PID
 from protocol import Commands
