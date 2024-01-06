@@ -107,12 +107,12 @@ def distance_to_obstacle(depth_image, slope_grid):
     for row_index in range(slope_grid.shape[0]):
         for col_index in range(3,5):
             if slope_grid[row_index][col_index] > 30:
-                print(f'slope:{slope_grid[row_index][col_index]}')
+                # print(f'slope:{slope_grid[row_index][col_index]}')
                 # danger_squares.append((row_index,col_index))
-                print(row_index,col_index)
+                # print(row_index,col_index)
                 patch_start_row = (row_index)*patch_height
                 patch_start_column = (col_index)*patch_width
-                print(patch_start_row,patch_start_column)
+                # print(patch_start_row,patch_start_column)
                 patch_end_row = patch_start_row+patch_height
                 patch_end_column = patch_start_column+patch_width
                 patch = depth_image[patch_start_row:patch_end_row,patch_start_column:patch_end_column]
@@ -141,7 +141,7 @@ try:
         frames = pipeline.wait_for_frames()
         steering_image, depth_image, color_image = get_new_images(frames)
         angle = cam.get_camera_angle(frames)
-        print(f'camera angle:{angle}')
+        # print(f'camera angle:{angle}')
         # print(angle)
         # print(depth_image[depth_image.shape[0]//2][depth_image.shape[1]//2])
         # print(steering_image[steering_image.shape[0]//2][steering_image.shape[1]//2])
@@ -152,7 +152,7 @@ try:
         # plt.imshow(mask)
         slope_grid = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
         print(slope_grid)
-        print(f'distance:{distance_to_obstacle(depth_image,slope_grid)}')
+        # print(f'distance:{distance_to_obstacle(depth_image,slope_grid)}')
         time.sleep(3)
 except KeyboardInterrupt:
     logger.info("Script terminated by user")

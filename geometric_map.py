@@ -13,10 +13,12 @@ import cv2
 # grid_m = 4
 from matplotlib import pyplot as plt
 
-cell_height = 60
-cell_width = 106 #miert??
+# cell_height = 60
+# cell_width = 106 #miert??
 grid_n = 8
 grid_m = 8
+
+
 
 
 def get_slope_grid(depth_image,depth_intrinsics,angles):
@@ -49,7 +51,9 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
             if a == 0:
                 pitch_degrees = 90
             else:
-                pitch = math.acos(b / math.sqrt(math.pow(a, 2) + math.pow(b, 2) + math.pow(c, 2)))
+                print(f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
+                pitch_cos = math.cos(b / math.sqrt(math.pow(a, 2) + math.pow(b, 2) + math.pow(c, 2)))
+                pitch = math.acos(pitch_cos)
                 pitch_degrees = math.degrees(pitch)
         else:
             pitch_degrees = 90
