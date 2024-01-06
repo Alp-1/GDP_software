@@ -169,7 +169,8 @@ try:
         print(f'camera angle:{angle}')
 
         start_time = time.time()
-        print(geo.get_slope_grid(depth_image,depth_intrinsics,angle))
+        slope_grid,central_outlier_points = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
+        print(slope_grid)
         print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
         # start_time = time.time()
         # mask = clf.get_semantic_map(color_image)

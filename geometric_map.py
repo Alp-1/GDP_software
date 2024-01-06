@@ -43,7 +43,7 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
     j = 0
     slope_grid = np.zeros((grid_n, grid_m))
     pcds = []
-    # central_outliers =
+    central_outliers = np.empty((0, 3))
     for cell in np_grid:
         image_o3d = o3d.geometry.Image(cell.astype(np.float32))
         pcd = o3d.geometry.PointCloud.create_from_depth_image(
@@ -58,7 +58,7 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
         # pcds.append(adjusted_pcd)
         print(len(downpcd.points))
         if len(downpcd.points)>30:
-            plane_model, inliers = adjusted_pcd.segment_plane(distance_threshold=0.005,ransac_n=3,num_iterations=20000)
+            plane_model, inliers = adjusted_pcd.segment_plane(distance_threshold=0.005,ransac_n=3,num_iterations=1000)
             [a, b, c, d] = plane_model
 
             inlier_cloud = pcd.select_by_index(inliers)
@@ -67,6 +67,7 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
 
             if j==1 or j==2:
                 outlier_points = np.asarray(outlier_cloud.points)
+                np.vstack((central_outliers, outlier_points))
 
                 # Find the index of the smallest number in each sublist
                 min_indices = np.argmin(outlier_points, axis=0)
@@ -77,7 +78,6 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
                 print(result_rows)
 
                 print(f'nr of outlier points: {len(outlier_points)}')
-                print(outlier_points[:5])
             if a == 0:
                 pitch_degrees = 90
             else:
@@ -98,5 +98,5 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
             j = 0
         else:
             j += 1
-
-    return slope_grid
+    print(central_outliers.shape)
+    return slope_grid, central_outliers
