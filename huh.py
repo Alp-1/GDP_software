@@ -18,20 +18,20 @@ import geometric_map as geo
 def apply_filters(depth_frame):
     decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
-    # spatial.set_option(rs.option.holes_fill,5) #do I still need hole filling???
-    # hole_filling = rs.hole_filling_filter(2) #use min of neighbour cells,might need changing
-    # threshold_filter = rs.threshold_filter(0.3, 4.0)
+    #spatial.set_option(rs.option.holes_fill,5) #do I still need hole filling???
+    hole_filling = rs.hole_filling_filter(2) #use min of neighbour cells,might need changing
+    threshold_filter = rs.threshold_filter(0.0, 4.0)
     depth_to_disparity = rs.disparity_transform(True)
     disparity_to_depth = rs.disparity_transform(False)
 
-    # spatial.set_option(rs.option.holes_fill, 3) #try 5??
+    #spatial.set_option(rs.option.holes_fill, 3) #try 5??
     frame = depth_frame
-    # frame = threshold_filter.process(frame)
+    frame = threshold_filter.process(frame)
     frame = decimation.process(frame)
     frame = depth_to_disparity.process(frame)
     frame = spatial.process(frame)
     frame = disparity_to_depth.process(frame)
-    # frame = hole_filling.process(frame)
+    #frame = hole_filling.process(frame)
     return frame
 
 
@@ -83,13 +83,13 @@ def get_new_images(frames):
         logger.info("problems")
 
     color_image = np.asanyarray(color_frame.get_data())
-    steering_image = get_thresholded_image(depth_frame)
+    #steering_image = get_thresholded_image(depth_frame)
     depth_frame = apply_filters(depth_frame)
     depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
 
     # num_zeros = np.count_nonzero(depth_image == 0)
     # logger.info(f"Number of zero values in depth image:{num_zeros}")
-    return steering_image, depth_image, color_image
+    return depth_image, depth_image, color_image
 
 
 def distance_to_obstacle(depth_image, slope_grid):

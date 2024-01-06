@@ -15,8 +15,8 @@ from matplotlib import pyplot as plt
 
 # cell_height = 60
 # cell_width = 106 #miert??
-grid_n = 12
-grid_m = 8
+grid_n = 1
+grid_m = 4
 
 #!!!changed: 10x10 grid
 def direction_to_euler_angles(direction):
@@ -35,8 +35,8 @@ def direction_to_euler_angles(direction):
 
 def get_slope_grid(depth_image,depth_intrinsics,angles):
     rotation_matrix = o3d.geometry.get_rotation_matrix_from_zyx((math.radians(angles[0]),0,math.radians(angles[2])))
-    cell_height = int(depth_image.shape[0] // 12)
-    cell_width = int(depth_image.shape[1] // 8)
+    cell_height = int(depth_image.shape[0] // 1)
+    cell_width = int(depth_image.shape[1] // 4)
     depth_grid = scipy.sparse.bsr_matrix(depth_image, blocksize=(cell_height, cell_width), dtype=np.float32).data
     np_grid = np.asanyarray(depth_grid)
     i = 0
@@ -53,11 +53,11 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
         downpcd = pcd #.voxel_down_sample(voxel_size=0.02)
 
         adjusted_pcd = copy.deepcopy(downpcd)
-        # adjusted_pcd.rotate(rotation_matrix)
+        adjusted_pcd.rotate(rotation_matrix)
         # pcds.append(adjusted_pcd)
         print(len(downpcd.points))
         if len(downpcd.points)>30:
-            plane_model, inliers = adjusted_pcd.segment_plane(distance_threshold=0.05,ransac_n=3,num_iterations=1000)
+            plane_model, inliers = adjusted_pcd.segment_plane(distance_threshold=0.005,ransac_n=3,num_iterations=20000)
             [a, b, c, d] = plane_model
 
             if a == 0:
