@@ -18,20 +18,20 @@ import geometric_map as geo
 def apply_filters(depth_frame):
     decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
-    spatial.set_option(rs.option.holes_fill,5) #do I still need hole filling???
-    hole_filling = rs.hole_filling_filter(2) #use min of neighbour cells,might need changing
-    threshold_filter = rs.threshold_filter(0.3, 4.0)
+    # spatial.set_option(rs.option.holes_fill,5) #do I still need hole filling???
+    # hole_filling = rs.hole_filling_filter(2) #use min of neighbour cells,might need changing
+    # threshold_filter = rs.threshold_filter(0.3, 4.0)
     depth_to_disparity = rs.disparity_transform(True)
     disparity_to_depth = rs.disparity_transform(False)
 
     # spatial.set_option(rs.option.holes_fill, 3) #try 5??
     frame = depth_frame
-    frame = threshold_filter.process(frame)
+    # frame = threshold_filter.process(frame)
     frame = decimation.process(frame)
     frame = depth_to_disparity.process(frame)
     frame = spatial.process(frame)
     frame = disparity_to_depth.process(frame)
-    frame = hole_filling.process(frame)
+    # frame = hole_filling.process(frame)
     return frame
 
 

@@ -50,10 +50,10 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
                                                          depth_intrinsics.fx, depth_intrinsics.fy,
                                                          depth_intrinsics.ppx, depth_intrinsics.ppy))
         pcd.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])  # flip it
-        downpcd = pcd.voxel_down_sample(voxel_size=0.02)
+        downpcd = pcd #.voxel_down_sample(voxel_size=0.02)
 
         adjusted_pcd = copy.deepcopy(downpcd)
-        adjusted_pcd.rotate(rotation_matrix)
+        # adjusted_pcd.rotate(rotation_matrix)
         # pcds.append(adjusted_pcd)
 
         if len(downpcd.points)>30:
