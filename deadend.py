@@ -239,7 +239,7 @@ def meters_to_lon_degrees(meters, latitude):
 # # Main script execution
 # if __name__ == "__main__":
 #     # Connection string for MAVLink (adjust as per your setup, e.g., serial port, UDP, etc.)
-#     connection_string = "'/dev/serial0', baud=57600"
+#     connection_string = "'/dev/ttyAMA0', baud=57600"
 
 #     # Record the heading at the dead-end
 #     dead_end_heading = record_heading()
