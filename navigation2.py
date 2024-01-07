@@ -282,7 +282,7 @@ def deadend_protocol():
 #             other stuff
 
 
-def distance_to_obstacle(steering_image,mask):
+def distance_to_obstacle(steering_image):
     # Calculate the size of the central square
     central_width = steering_image.shape[1] // 4
     central_height = steering_image.shape[0] // 40
@@ -293,12 +293,12 @@ def distance_to_obstacle(steering_image,mask):
 
     # Select the central square
     central_square = steering_image[start_row:start_row + central_height, start_col:start_col + central_width]
-    mask_square = mask[start_row:start_row + central_height, start_col:start_col + central_width]
+    # mask_square = mask[start_row:start_row + central_height, start_col:start_col + central_width]
 
     # Create a masked array where 0 values are masked
     masked_array = np.ma.masked_where(central_square == 0, central_square)
 
-    closest_point = get_smallest_value(masked_array, mask_square)
+    # closest_point = get_smallest_value(masked_array, mask_square)
 
 
     # Find the minimum value while excluding masked values (0s)
@@ -307,7 +307,7 @@ def distance_to_obstacle(steering_image,mask):
     logger.info(f"distance to obstacle (min): {min_value_without_zeros}")
     logger.info(f"distance to obstacle (mean): {mean_dist}")
 
-    return closest_point
+    return min_value_without_zeros
 
 
 def calculate_distance(depth_image, y1, x1, y2, x2):
