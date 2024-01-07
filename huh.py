@@ -316,6 +316,51 @@ def percentage_of_elements_equal_to_value(arr, value):
     return percentage
 
 
+def clearest_path(steering_image, slope_grid, mask):
+    closest_obstacle = -1
+    closest_vegetation = -1
+    best_direction = 0
+    best_vegetation_direction = 0
+
+    width = steering_image.shape[1]
+    central_square_height = steering_image.shape[0] // 40
+    central_square_width = column_width
+    start_row = (steering_image.shape[0] - central_square_height) // 2
+    for start_col in range(width - central_square_width - 1):
+        depth_square = steering_image[start_row:start_row + central_square_height,
+                       start_col:start_col + central_square_width]
+        mask_square = mask[start_row:start_row + central_square_height,
+                      start_col:start_col + central_square_width]
+        masked_depth = np.ma.masked_where(depth_square == 0, depth_square)
+        # Calculate the middle index of the selected columns
+        middle_col = start_col + central_square_width // 2
+        ground_pitch_angle = slope_grid[get_slope_index(middle_col, width)]
+        print(f'pitch angle for seg:{ground_pitch_angle}')
+        print(f'percent:{percentage_of_elements_equal_to_value(mask_square, 22)}')
+        if ground_pitch_angle > 35 and percentage_of_elements_equal_to_value(mask_square,
+                                                                             22) < 0.3:  # and not veg!!
+            continue
+
+        closest_point = get_smallest_value(masked_depth, mask_square)
+        if closest_point > closest_obstacle:
+            closest_obstacle = closest_point
+            best_direction = middle_col
+        if percentage_of_elements_equal_to_value(mask_square, 22) > 0.6:
+            if closest_point > closest_vegetation:
+                closest_vegetation = closest_vegetation
+                best_vegetation_direction = middle_col
+
+    if closest_obstacle >= deadend_threshold:
+        return best_direction
+    else:
+        if closest_vegetation != -1:
+            return best_vegetation_direction
+        else:
+            return best_direction
+
+
+
+
 # Main execution loop
 try:
 
@@ -370,47 +415,7 @@ try:
         # new_obstacle_dist(depth_image,1,central_outlier_points)
         # print("Obstacle detection: --- %s seconds ---" % (time.time() - start_time))
 
-        def clearest_path(steering_image, slope_grid, mask):
-            closest_obstacle = -1
-            closest_vegetation = -1
-            best_direction = 0
-            best_vegetation_direction = 0
-
-            width = steering_image.shape[1]
-            central_square_height = steering_image.shape[0] // 40
-            central_square_width = column_width
-            start_row = (steering_image.shape[0] - central_square_height) // 2
-            for start_col in range(width - central_square_width - 1):
-                depth_square = steering_image[start_row:start_row + central_square_height,
-                               start_col:start_col + central_square_width]
-                mask_square = mask[start_row:start_row + central_square_height,
-                              start_col:start_col + central_square_width]
-                masked_depth = np.ma.masked_where(depth_square == 0, depth_square)
-                # Calculate the middle index of the selected columns
-                middle_col = start_col + central_square_width // 2
-                ground_pitch_angle = slope_grid[get_slope_index(middle_col, width)]
-                print(f'pitch angle for seg:{ground_pitch_angle}')
-                print(f'percent:{percentage_of_elements_equal_to_value(mask_square, 22)}')
-                if ground_pitch_angle > 35 and percentage_of_elements_equal_to_value(mask_square,
-                                                                                     22) < 0.3:  # and not veg!!
-                    continue
-
-                closest_point = get_smallest_value(masked_depth, mask_square)
-                if closest_point > closest_obstacle:
-                    closest_obstacle = closest_point
-                    best_direction = middle_col
-                if percentage_of_elements_equal_to_value(mask_square, 22) > 0.6:
-                    if closest_point > closest_vegetation:
-                        closest_vegetation = closest_vegetation
-                        best_vegetation_direction = middle_col
-
-            if closest_obstacle >= deadend_threshold:
-                return best_direction
-            else:
-                if closest_vegetation != -1:
-                    return best_vegetation_direction
-                else:
-                    return best_direction
+        print(clearest_path(depth_image,slope_grid,mask))
 
 
         time.sleep(10)
