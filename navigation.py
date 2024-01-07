@@ -16,7 +16,7 @@ logger = setup_custom_logger("navigation")
 
 
 # Connect to the vehicle
-mavlink_connection = mavutil.mavlink_connection('/dev/serial0', baud=57600)
+mavlink_connection = mavutil.mavlink_connection('/dev/ttyAMA0', baud=57600)
 mavlink_connection.wait_heartbeat()
 logger.info("Heartbeat from MAVLink system (system %u component %u)" % (
     mavlink_connection.target_system, mavlink_connection.target_component))

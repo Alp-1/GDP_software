@@ -2,7 +2,7 @@ import time
 from pymavlink import mavutil
 
 # Connect to the vehicle
-the_connection = mavutil.mavlink_connection('/dev/serial0', baud=9600)
+the_connection = mavutil.mavlink_connection('/dev/ttyAMA0', baud=9600)
 the_connection.wait_heartbeat()
 print("Heartbeat from system (system %u component %u)" % (the_connection.target_system, the_connection.target_component))
 

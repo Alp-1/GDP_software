@@ -126,7 +126,7 @@ def get_imu_data(mavlink_connection):
     return result
 
 
-def initialise_mavlink(connection_string="/dev/serial0", baud=57600):
+def initialise_mavlink(connection_string="/dev/ttyAMA0", baud=57600):
     """Initialise mavlink connection"""
     mavlink_connection = mavutil.mavlink_connection(connection_string, baud=baud)
     wait_for_msg(mavlink_connection, "HEARTBEAT", condition="HEARTBEAT.type==10")
