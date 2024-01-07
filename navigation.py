@@ -91,7 +91,7 @@ def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
     mavlink_connection.mav.set_position_target_local_ned_send(
         0,  # time_boot_ms (not used)
         mavlink_connection.target_system,  # target system
-        mavlink_connection.target_component,  # target component
+        mavlink_connection.target_component ,  # target component
         mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
         0b100111100111,  # type_mask
         0, 0, 0,  # x, y, z positions (not used)
@@ -396,7 +396,7 @@ def avoid_flipping():
         logger.info("ROVER IS FLIPPING OVER")
         mavlink_velocity(0,0,0)
         time.sleep(0.5)
-        mavlink_go_x_meters(-0.4)
+        mavlink_go_x_meters(-1.0)
         time.sleep(0.5)
 
 
