@@ -327,15 +327,15 @@ try:
         angle = cam.get_camera_angle(frames)
         print(f'camera angle:{angle}')
 
-        # start_time = time.time()
-        # slope_grid,central_outlier_points = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
-        # print(slope_grid)
-        # print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
-
         start_time = time.time()
-        slope_grid,central_outlier_points = get_slope_grid_accurate(depth_image,angle)
+        slope_grid,central_outlier_points = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
         print(slope_grid)
-        print("Slope Grid(manual): --- %s seconds ---" % (time.time() - start_time))
+        print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
+
+        # start_time = time.time()
+        # slope_grid,central_outlier_points = get_slope_grid_accurate(depth_image,angle)
+        # print(slope_grid)
+        # print("Slope Grid(manual): --- %s seconds ---" % (time.time() - start_time))
 
         ground_pitch_angle = slope_grid[get_slope_index(100,424)]
 
@@ -348,7 +348,7 @@ try:
         central_square_width = 10
         mask_square = mask[start_row:start_row + central_square_height, start_col:start_col + central_square_width]
 
-        print(ercentage_of_elements_equal_to_value(mask_square ,22))
+        print(percentage_of_elements_equal_to_value(mask_square ,22))
         # logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
         start_time = time.time()
         new_obstacle_dist(depth_image,1,central_outlier_points)
