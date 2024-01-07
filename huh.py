@@ -334,7 +334,9 @@ def clearest_path(steering_image, slope_grid, mask):
         masked_depth = np.ma.masked_where(depth_square == 0, depth_square)
         # Calculate the middle index of the selected columns
         middle_col = start_col + central_square_width // 2
-        ground_pitch_angle = slope_grid[get_slope_index(middle_col, width)]
+        index = get_slope_index(middle_col, width)
+        ground_pitch_angle = slope_grid[index]
+
         print(get_slope_index(middle_col,width))
         print(f'pitch angle for seg:{ground_pitch_angle}')
         print(f'percent:{percentage_of_elements_equal_to_value(mask_square, 22)}')
