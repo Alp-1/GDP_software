@@ -16,7 +16,7 @@ downsampled_height = 120
 
 
 class SemanticSegmentation:
-    def __init__(self, model_path='model_7.joblib'):
+    def __init__(self, model_path='model_10.joblib'):
         self.model = load(model_path)
 
     def extract_features(self,img):
