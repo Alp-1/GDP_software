@@ -335,10 +335,10 @@ def clearest_path(steering_image, slope_grid, mask):
         # Calculate the middle index of the selected columns
         middle_col = start_col + central_square_width // 2
         ground_pitch_angle = slope_grid[get_slope_index(middle_col, width)]
+        print(get_slope_index(middle_col,width))
         print(f'pitch angle for seg:{ground_pitch_angle}')
         print(f'percent:{percentage_of_elements_equal_to_value(mask_square, 22)}')
-        if ground_pitch_angle > 35 and percentage_of_elements_equal_to_value(mask_square,
-                                                                             22) < 0.3:  # and not veg!!
+        if ground_pitch_angle > 35 and percentage_of_elements_equal_to_value(mask_square,22) < 0.3:  # and not veg!!
             continue
 
         closest_point = get_smallest_value(masked_depth, mask_square)
