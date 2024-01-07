@@ -282,7 +282,7 @@ def deadend_protocol():
 #             other stuff
 
 
-def distance_to_obstacle(steering_image):
+def distance_to_obstacle(steering_image,mask):
     # Calculate the size of the central square
     central_width = steering_image.shape[1] // 4
     central_height = steering_image.shape[0] // 40
@@ -293,9 +293,13 @@ def distance_to_obstacle(steering_image):
 
     # Select the central square
     central_square = steering_image[start_row:start_row + central_height, start_col:start_col + central_width]
+    mask_square = mask[start_row:start_row + central_height, start_col:start_col + central_width]
 
     # Create a masked array where 0 values are masked
     masked_array = np.ma.masked_where(central_square == 0, central_square)
+
+    closest_point = get_smallest_value(masked_array, mask_square)
+
 
     # Find the minimum value while excluding masked values (0s)
     min_value_without_zeros = np.min(masked_array)
@@ -303,7 +307,7 @@ def distance_to_obstacle(steering_image):
     logger.info(f"distance to obstacle (min): {min_value_without_zeros}")
     logger.info(f"distance to obstacle (mean): {mean_dist}")
 
-    return min_value_without_zeros
+    return closest_point
 
 
 def calculate_distance(depth_image, y1, x1, y2, x2):
@@ -336,13 +340,17 @@ def percentage_of_elements_equal_to_value(arr, value):
 
 
 def get_smallest_value(steering_image, mask):
-    # Create a mask based on the conditions
-    condition_mask = np.logical_and(mask != 6, mask != 22)
+    contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
+    if contains_only_6_and_22:
+        return 99
+    else:
+        # Create a mask based on the conditions
+        condition_mask = np.logical_and(mask != 6, mask != 22)
 
-    # Apply the mask to the depth image and get the minimum value
-    min_value = np.min(steering_image[condition_mask])
+        # Apply the mask to the depth image and get the minimum value
+        min_value = np.min(steering_image[condition_mask])
 
-    return min_value
+        return min_value
 
 
 
