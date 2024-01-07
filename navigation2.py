@@ -511,7 +511,7 @@ def navigate_avoiding_obstacles(steering_image, depth_image, color_image, dist, 
         mask = cv2.resize(mask, (steering_image.shape[0], steering_image.shape[1]), interpolation=cv2.INTER_NEAREST)
         column_index, angle = find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width)
         logger.info(f"direction:{angle} column:{column_index}")
-        if is_deadend(depth_image, column_index):
+        if is_deadend(steering_image, mask,column_index):
             logger.info("deadend")
             deadend_status = True
 
