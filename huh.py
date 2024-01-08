@@ -404,7 +404,8 @@ try:
         # start_time = time.time()
         # new_obstacle_dist(depth_image,1,central_outlier_points)
         # print("Obstacle detection: --- %s seconds ---" % (time.time() - start_time))
-
+        mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+        print(f'mask new shape:{mask.shape}')
         print(clearest_path(depth_image,slope_grid,mask))
 
 
