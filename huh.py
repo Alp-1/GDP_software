@@ -22,7 +22,7 @@ deadend_threshold = 1.0
 def get_smallest_value(steering_image, mask):
     contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
     if contains_only_6_and_22:
-        condition_mask = np.logical_and(mask != 22)
+        condition_mask = (mask != 22)
     else:
         # Create a mask based on the conditions
         condition_mask = np.logical_and(mask != 6, mask != 22)
@@ -377,45 +377,55 @@ try:
         frames = align.process(frames)
 
         steering_image, depth_image, color_image,depth_frame = get_new_images(frames)
-        angle = cam.get_camera_angle(frames)
-        print(f'camera angle:{angle}')
 
-        start_time = time.time()
-        slope_grid,central_outlier_points = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
-        print(slope_grid)
-        print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
+        nr_of_pixels = steering_image.size
+        percentage = np.count_nonzero(steering_image == 0) / nr_of_pixels
+        logger.info(f"percentage of pixels with 0 value - steering:{percentage}")
+        print(np.max(steering_image))
 
+        nr_of_pixels = depth_image.size
+        percentage = np.count_nonzero(depth_image == 0) / nr_of_pixels
+        logger.info(f"percentage of pixels with 0 value - depth:{percentage}")
+        print(np.max(depth_image))
+
+        # angle = cam.get_camera_angle(frames)
+        # print(f'camera angle:{angle}')
+        #
         # start_time = time.time()
-        # slope_grid,central_outlier_points = get_slope_grid_accurate(depth_image,angle)
+        # slope_grid,central_outlier_points = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
         # print(slope_grid)
-        # print("Slope Grid(manual): --- %s seconds ---" % (time.time() - start_time))
-
-        start_time = time.time()
-        mask = clf.get_semantic_map(color_image)
-        if isinstance(mask, np.ndarray):
-            print("It's a NumPy array.")
-        else:
-            print("It's not a NumPy array.")
-        print("Segmenting image --- %s seconds ---" % (time.time() - start_time))
-
-        start_row = 0
-        central_square_height = 5
-        start_col = 10
-        central_square_width = 10
-        mask_square = mask[start_row:start_row + central_square_height, start_col:start_col + central_square_width]
-        print(percentage_of_elements_equal_to_value(mask_square ,22))
-        print(f'depth shape{depth_image.shape}')
-        print(f'mask shape:{mask.shape}')
-        # logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
+        # print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
+        #
+        # # start_time = time.time()
+        # # slope_grid,central_outlier_points = get_slope_grid_accurate(depth_image,angle)
+        # # print(slope_grid)
+        # # print("Slope Grid(manual): --- %s seconds ---" % (time.time() - start_time))
+        #
         # start_time = time.time()
-        # new_obstacle_dist(depth_image,1,central_outlier_points)
-        # print("Obstacle detection: --- %s seconds ---" % (time.time() - start_time))
-        mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
-        print(f'mask new shape:{mask.shape}')
-        start_time = time.time()
-        print(clearest_path(depth_image,slope_grid,mask))
-        print("Choosing direction: --- %s seconds ---" % (time.time() - start_time))
-
+        # mask = clf.get_semantic_map(color_image)
+        # if isinstance(mask, np.ndarray):
+        #     print("It's a NumPy array.")
+        # else:
+        #     print("It's not a NumPy array.")
+        # print("Segmenting image --- %s seconds ---" % (time.time() - start_time))
+        #
+        # start_row = 0
+        # central_square_height = 5
+        # start_col = 10
+        # central_square_width = 10
+        # mask_square = mask[start_row:start_row + central_square_height, start_col:start_col + central_square_width]
+        # print(percentage_of_elements_equal_to_value(mask_square ,22))
+        # print(f'depth shape{depth_image.shape}')
+        # print(f'mask shape:{mask.shape}')
+        # # logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
+        # # start_time = time.time()
+        # # new_obstacle_dist(depth_image,1,central_outlier_points)
+        # # print("Obstacle detection: --- %s seconds ---" % (time.time() - start_time))
+        # mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+        # print(f'mask new shape:{mask.shape}')
+        # start_time = time.time()
+        # print(clearest_path(depth_image,slope_grid,mask))
+        # print("Choosing direction: --- %s seconds ---" % (time.time() - start_time))
         time.sleep(10)
 except KeyboardInterrupt:
     logger.info("Script terminated by user")

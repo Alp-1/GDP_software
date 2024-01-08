@@ -23,14 +23,13 @@ logger.info("Heartbeat from MAVLink system (system %u component %u)" % (
 
 obstacle_threshold = 1.0
 deadend_threshold = 1.0
-vegetation_threshold = 0.017
 flipping_threshold_radians = 0.4
 column_width = 50  # might need adjusting
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
 folder_name = ""
 pitch_threshold = 30
-
+target_speed = 0
 
 def create_folder(folder_name):
     # Create a folder if it doesn't exist
@@ -74,6 +73,7 @@ def mavlink_turn(velocity_x, velocity_y, velocity_z, yaw):
 
 
 def mavlink_velocity(velocity_x, velocity_y, velocity_z):
+    global target_speed
     mavlink_connection.mav.set_position_target_local_ned_send(
         0,  # time_boot_ms (not used)
         mavlink_connection.target_system,  # target system
@@ -86,7 +86,7 @@ def mavlink_velocity(velocity_x, velocity_y, velocity_z):
         0, 0)  # yaw, yaw_rate
 
     logger.info("sexy")
-
+    target_speed = velocity_x
 
 def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
     mavlink_connection.mav.set_position_target_local_ned_send(
@@ -220,6 +220,7 @@ def is_deadend(steering_image, mask,direction_column):
                                       square)  # this might be bad, it also excludes points that are closer than minz
 
     closest_point = get_smallest_value(masked_array, mask_square)
+    vegetation_percentage = percentage_of_elements_equal_to_value(mask_square, 22)
 
     # # Find the minimum value while excluding masked values (0s)
     # min_value_without_zeros = np.min(masked_array)
@@ -230,7 +231,7 @@ def is_deadend(steering_image, mask,direction_column):
     #     return True
     # else:
     #     return False
-    if closest_point < deadend_threshold:
+    if closest_point < deadend_threshold and vegetation_percentage < 0.6:
         return True
     else:
         return False
@@ -483,8 +484,8 @@ def is_tall_vegetation(steering_image, current_speed):
         return False
 
 
-def is_collision(current_speed, target_speed):
-    if current_speed < 0.2 and target_speed >= 0.4:
+def is_collision(current_speed):
+    if current_speed < 0.2 and target_speed > 0:
         return True
     else:
         return False
@@ -496,10 +497,9 @@ def avoid_flipping():
     if abs(angles[0]) > flipping_threshold_radians or abs(angles[1]) > flipping_threshold_radians:
         mavlink_connection.set_mode_apm("GUIDED")
         logger.info("ROVER IS FLIPPING OVER")
-        mavlink_velocity(0, 0, 0)
-        time.sleep(0.5)
-        mavlink_go_x_meters(-1.0)
-        time.sleep(0.5)
+        # mavlink_velocity(0, 0, 0)
+        # time.sleep(0.5)
+        mav_sender.move_backward(mavlink_connection,0.5)
 
 
 # Function to navigate while avoiding obstacles
@@ -542,13 +542,15 @@ def navigate():
     camera_angle = cam.get_camera_angle(frames)
     vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
     if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
+        avoid_flipping()
         distance = distance_to_obstacle(depth_image)
         current_speed = mav_listener.get_rover_speed(mavlink_connection)
         current_speed /= 100
         logger.info(f"current speed:{current_speed}")  # to test if target speed can be used for collision detection
 
-        avoid_flipping()
-
+        if is_collision(current_speed):
+            logger.info("COLLISION")
+            mav_sender.move_backward(mavlink_connection, 0.5)
         if is_tall_vegetation(depth_image, current_speed):
             logger.info("IN TALL VEGETATION")
             mavlink_connection.set_mode_apm("AUTO")
