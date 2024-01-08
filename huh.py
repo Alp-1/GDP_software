@@ -323,9 +323,6 @@ def terrain_type_distribution(patch):
     return terrain_percentage,vegetation_percentage,tree_percentage,other_percentage
 
 
-def is_safe_terrain(ground,veg,tree,other):
-    if tree>0.05 or other>0.2:
-        return
 def clearest_path(steering_image, slope_grid, mask):
     closest_obstacle = -1
     closest_vegetation = -1
