@@ -351,11 +351,14 @@ def get_smallest_value(steering_image, mask):
         # Create a mask based on the conditions
         condition_mask = np.logical_and(mask != 6, mask != 22)
 
+    masked_array = steering_image[condition_mask]
+    if masked_array.size == 0:
+        return np.min(steering_image)
+    else:
     # Apply the mask to the depth image and get the minimum value
-    min_value = np.min(steering_image[condition_mask])
+        min_value = np.min(steering_image[condition_mask])
 
     return min_value
-
 
 def terrain_type_distribution(patch):
     terrain_id = 6
