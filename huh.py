@@ -19,6 +19,37 @@ grid_m = 4
 column_width = 50
 deadend_threshold = 1.0
 
+def is_deadend(steering_image, mask,direction_column):
+    square_height = steering_image.shape[0] // 40
+    square_width = column_width
+    start_row = (steering_image.shape[0] - square_height) // 2
+    start_col = direction_column - (square_width // 2)
+
+    square = steering_image[start_row:start_row + square_height, start_col:start_col + square_width]
+    mask_square = mask[start_row:start_row + square_height, start_col:start_col + square_width]
+    # Create a masked array where 0 values are masked
+    masked_array = np.ma.masked_where(square == 0,
+                                      square)  # this might be bad, it also excludes points that are closer than minz
+
+    print(masked_array.shape)
+    closest_point = get_smallest_value(masked_array, mask_square)
+    vegetation_percentage = percentage_of_elements_equal_to_value(mask_square, 22)
+
+    # # Find the minimum value while excluding masked values (0s)
+    # min_value_without_zeros = np.min(masked_array)
+    # mean_dist = np.mean(masked_array)
+    # logger.info(f"Distance to obstacle in chosen direction: {min_value_without_zeros}")
+    # logger.info(f"Distance to obstacle in chosen direction(mean): {mean_dist}")
+    # if min_value_without_zeros < deadend_threshold:
+    #     return True
+    # else:
+    #     return False
+    if closest_point < deadend_threshold and vegetation_percentage < 0.6:
+        return True
+    else:
+        return False
+
+
 def get_smallest_value(steering_image, mask):
     contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
     if contains_only_6_and_22:
@@ -27,8 +58,12 @@ def get_smallest_value(steering_image, mask):
         # Create a mask based on the conditions
         condition_mask = np.logical_and(mask != 6, mask != 22)
 
+    masked_array = steering_image[condition_mask]
+    if masked_array.size == 0:
+        return 0
+    else:
     # Apply the mask to the depth image and get the minimum value
-    min_value = np.min(steering_image[condition_mask])
+        min_value = np.min(steering_image[condition_mask])
 
     return min_value
 
@@ -449,7 +484,7 @@ try:
         # # print("Slope Grid(manual): --- %s seconds ---" % (time.time() - start_time))
         #
         # start_time = time.time()
-        # mask = clf.get_semantic_map(color_image)
+        mask = clf.get_semantic_map(color_image)
         # if isinstance(mask, np.ndarray):
         #     print("It's a NumPy array.")
         # else:
@@ -463,7 +498,9 @@ try:
         # # start_time = time.time()
         # # new_obstacle_dist(depth_image,1,central_outlier_points)
         # # print("Obstacle detection: --- %s seconds ---" % (time.time() - start_time))
-        # mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+        mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+        is_deadend(steering_image,mask,100)
+
         # print(f'mask new shape:{mask.shape}')
         # start_time = time.time()
         # print(clearest_path(depth_image,slope_grid,mask))
