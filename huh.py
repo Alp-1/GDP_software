@@ -19,6 +19,26 @@ grid_m = 4
 column_width = 50
 deadend_threshold = 1.0
 
+
+def initialize_realsense():
+    global profile
+    pipeline = rs.pipeline()
+    config = rs.config()
+    config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 60)  # RGB stream
+    config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 60)  # Depth stream
+    config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 200)  # Accelerometer data
+    config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 400)  # Gyroscope data
+    profile = pipeline.start(config)
+
+    sensor = profile.get_device().query_sensors()[1]
+    sensor.set_option(rs.option.enable_auto_exposure, False)
+    sensor.set_option(rs.option.exposure, 78.0)
+    sensor.set_option(rs.option.gain, 90.0)
+
+    depth_sensor = profile.get_device().query_sensors()[0]
+    # depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5. doesn't work rn, maybe because of no advanced mode on pi?
+    return pipeline, profile
+
 def apply_filters(depth_frame):
     decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
