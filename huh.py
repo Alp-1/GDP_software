@@ -104,7 +104,7 @@ def get_new_images(frames):
     depth_frame = apply_filters(depth_frame)
     depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
 
-    return depth_image, depth_image, color_image,depth_frame
+    return steering_image, depth_image, color_image,depth_frame
 
 
 def distance_to_obstacle(depth_image, slope_grid):
