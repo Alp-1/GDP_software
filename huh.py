@@ -324,10 +324,10 @@ def clearest_path(steering_image, slope_grid, mask):
         middle_col = start_col + central_square_width // 2
         index = get_slope_index(middle_col, width)
         ground_pitch_angle = slope_grid[index]
-        print(f'Slope grid:{slope_grid}')
-        print(get_slope_index(middle_col,width))
-        print(f'pitch angle for seg:{ground_pitch_angle}')
-        print(f'percent:{percentage_of_elements_equal_to_value(mask_square, 22)}')
+        # print(f'Slope grid:{slope_grid}')
+        # print(get_slope_index(middle_col,width))
+        # print(f'pitch angle for seg:{ground_pitch_angle}')
+        # print(f'percent:{percentage_of_elements_equal_to_value(mask_square, 22)}')
         if ground_pitch_angle > 35 and percentage_of_elements_equal_to_value(mask_square,22) < 0.3:  # and not veg!!
             continue
 
@@ -406,8 +406,9 @@ try:
         # print("Obstacle detection: --- %s seconds ---" % (time.time() - start_time))
         mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
         print(f'mask new shape:{mask.shape}')
+        start_time = time.time()
         print(clearest_path(depth_image,slope_grid,mask))
-
+        print("Choosing direction: --- %s seconds ---" % (time.time() - start_time))
 
         time.sleep(10)
 except KeyboardInterrupt:
