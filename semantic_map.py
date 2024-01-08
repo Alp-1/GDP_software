@@ -6,8 +6,8 @@ from functools import partial
 from joblib import dump, load
 from joblib import dump, load
 
-sigma_min = 0.5
-sigma_max = 16
+sigma_min = 1
+sigma_max = 32
 
 
 # 4x downsampling
