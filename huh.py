@@ -392,6 +392,8 @@ try:
 
         start_time = time.time()
         mask = clf.get_semantic_map(color_image)
+        print("Segmenting image --- %s seconds ---" % (time.time() - start_time))
+
         start_row = 0
         central_square_height = 5
         start_col = 10
