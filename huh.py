@@ -336,7 +336,7 @@ def clearest_path(steering_image, slope_grid, mask):
         middle_col = start_col + central_square_width // 2
         index = get_slope_index(middle_col, width)
         ground_pitch_angle = slope_grid[index]
-
+        print(f'Slope grid:{slope_grid}')
         print(get_slope_index(middle_col,width))
         print(f'pitch angle for seg:{ground_pitch_angle}')
         print(f'percent:{percentage_of_elements_equal_to_value(mask_square, 22)}')
@@ -399,9 +399,6 @@ try:
         # slope_grid,central_outlier_points = get_slope_grid_accurate(depth_image,angle)
         # print(slope_grid)
         # print("Slope Grid(manual): --- %s seconds ---" % (time.time() - start_time))
-
-        ground_pitch_angle = slope_grid[get_slope_index(100,424)]
-
 
         start_time = time.time()
         mask = clf.get_semantic_map(color_image)
