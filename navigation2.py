@@ -247,7 +247,7 @@ def deadend_protocol():
 
     camera_angle = cam.get_camera_angle(frames)
     start_time = time.time()
-    slope_grid = geo.get_slope_grid(depth_image, depth_intrinsics, camera_angle)
+    slope_grid,central_outlier_points = geo.get_slope_grid(depth_image, depth_intrinsics, camera_angle)
     logger.info("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
 
     start_time = time.time()
@@ -265,7 +265,7 @@ def deadend_protocol():
         steering_image, depth_image, color_image = get_new_images(frames)
         camera_angle = cam.get_camera_angle(frames)
         start_time = time.time()
-        slope_grid = geo.get_slope_grid(depth_image, depth_intrinsics, camera_angle)
+        slope_grid,central_outlier_points = geo.get_slope_grid(depth_image, depth_intrinsics, camera_angle)
         logger.info("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
 
         start_time = time.time()
@@ -533,7 +533,7 @@ def navigate_avoiding_obstacles(steering_image, depth_image, color_image, dist, 
         mavlink_connection.set_mode_apm("GUIDED")
         current_time = datetime.now().strftime("%H-%M-%S")
         start_time = time.time()
-        slope_grid = geo.get_slope_grid(depth_image, depth_intrinsics, camera_angle)
+        slope_grid,central_outlier_points = geo.get_slope_grid(depth_image, depth_intrinsics, camera_angle)
         logger.info("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
 
         start_time = time.time()
