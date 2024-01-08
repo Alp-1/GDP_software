@@ -21,7 +21,6 @@ class SemanticSegmentation:
 
     def extract_features(self,img):
         img_new = cv2.resize(img, (downsampled_width, downsampled_height))
-        print(img_new.shape)
         features_func = partial(feature.multiscale_basic_features,
                                 intensity=True, edges=True, texture=True,
                                 sigma_min=sigma_min, sigma_max=sigma_max,

@@ -1,3 +1,4 @@
+import math
 import os
 from datetime import datetime
 
@@ -5,7 +6,6 @@ import cv2
 import numpy as np
 import pyrealsense2 as rs
 # from dronekit import connect, VehicleMode, LocationGlobalRelative
-from dronekit import *
 import geometric_map as geo
 import mav_listener
 from logging_config import setup_custom_logger
@@ -14,12 +14,6 @@ from semantic_map import SemanticSegmentation
 import mav_sender
 
 logger = setup_custom_logger("navigation")
-
-# Connect to the vehicle
-mavlink_connection = mavutil.mavlink_connection('/dev/ttyAMA0', baud=57600)
-mavlink_connection.wait_heartbeat()
-logger.info("Heartbeat from MAVLink system (system %u component %u)" % (
-    mavlink_connection.target_system, mavlink_connection.target_component))
 
 obstacle_threshold = 1.0
 deadend_threshold = 1.0
@@ -344,18 +338,19 @@ def percentage_of_elements_equal_to_value(arr, value):
 
 
 def get_smallest_value(steering_image, mask): #what if all 22
-    all_ground = np.all(steering_image == 6)
     contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
-    if all_ground:
-        return deadend_threshold + 0.01
-    elif contains_only_6_and_22:
+    if contains_only_6_and_22:
         condition_mask = (mask != 22)
     else:
         # Create a mask based on the conditions
         condition_mask = np.logical_and(mask != 6, mask != 22)
 
     masked_array = steering_image[condition_mask]
-    min_value = np.min(masked_array)
+    if masked_array.size == 0:
+        return np.min(steering_image)
+    else:
+    # Apply the mask to the depth image and get the minimum value
+        min_value = np.min(steering_image[condition_mask])
 
     return min_value
 
@@ -600,32 +595,24 @@ def navigate():
 
 # Main execution loop
 try:
-    # Get the current date and time for the folder name
-    current_date_and_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    folder_name = f"mission_{current_date_and_time}"
-    # Create a folder for the mission
-    create_folder(folder_name)
 
-    pipeline, profile = initialize_realsense()
-    depth_sensor = profile.get_device().first_depth_sensor()
-    depth_scale = depth_sensor.get_depth_scale()
-    logger.info("Depth Scale is: {}".format(depth_scale))
-    mavlink_connection.arducopter_arm()
 
-    frames = pipeline.wait_for_frames()
-    prof = frames.get_profile()
-    depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
+
+    steering_image = np.random.rand(240, 424)
     clf = SemanticSegmentation()
-    cam.initialize_angle(frames)
-    while True:
-        navigate()
-
+    im_path = '24.png'
+    im = cv2.imread(im_path)
+    mask = clf.get_semantic_map(im)
+    mask = cv2.resize(mask, (steering_image.shape[1], steering_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+    print(mask.shape)
+    print(get_smallest_value(steering_image,mask))
+    slope = np.array([10,10,10,10])
+    print(is_deadend(steering_image,mask,25))
+    print(clearest_path(steering_image,slope,mask))
 
 except KeyboardInterrupt:
     logger.info("Script terminated by user")
 
 finally:
-    pipeline.stop()
     cv2.destroyAllWindows()
-    mavlink_connection.close()
     logger.info("Connection closed.")
