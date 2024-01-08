@@ -22,7 +22,7 @@ deadend_threshold = 1.0
 def get_smallest_value(steering_image, mask):
     contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
     if contains_only_6_and_22:
-        return 99
+        return 0
     else:
         # Create a mask based on the conditions
         condition_mask = np.logical_and(mask != 6, mask != 22)
@@ -332,13 +332,15 @@ def clearest_path(steering_image, slope_grid, mask):
             continue
 
         closest_point = get_smallest_value(masked_depth, mask_square)
-        if closest_point > closest_obstacle:
-            closest_obstacle = closest_point
-            best_direction = middle_col
-        if percentage_of_elements_equal_to_value(mask_square, 22) > 0.6:
+        vegetation_percentage = percentage_of_elements_equal_to_value(mask_square, 22)
+        if vegetation_percentage > 0.6:
             if closest_point > closest_vegetation:
                 closest_vegetation = closest_vegetation
                 best_vegetation_direction = middle_col
+        else:
+            if closest_point > closest_obstacle:
+                closest_obstacle = closest_point
+                best_direction = middle_col
 
     if closest_obstacle >= deadend_threshold:
         return best_direction
@@ -395,8 +397,9 @@ try:
         start_col = 10
         central_square_width = 10
         mask_square = mask[start_row:start_row + central_square_height, start_col:start_col + central_square_width]
-
         print(percentage_of_elements_equal_to_value(mask_square ,22))
+        print(f'depth shape{depth_image.shape}')
+        print(f'mask shape:{mask.shape}')
         # logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
         # start_time = time.time()
         # new_obstacle_dist(depth_image,1,central_outlier_points)
