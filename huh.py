@@ -60,7 +60,7 @@ def get_smallest_value(steering_image, mask):
 
     masked_array = steering_image[condition_mask]
     if masked_array.size == 0:
-        return 0
+        return np.min(steering_image)
     else:
     # Apply the mask to the depth image and get the minimum value
         min_value = np.min(steering_image[condition_mask])
