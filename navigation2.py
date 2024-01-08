@@ -356,6 +356,24 @@ def get_smallest_value(steering_image, mask):
     return min_value
 
 
+def terrain_type_distribution(patch):
+    terrain_id = 6
+    vegetation_id = 22
+    tree_id = 25
+    other_id = 99
+    total_elements = patch.size
+
+    matching_elements = np.count_nonzero(patch == terrain_id)
+    terrain_percentage = matching_elements / total_elements
+    matching_elements = np.count_nonzero(patch == vegetation_id)
+    vegetation_percentage = matching_elements / total_elements
+    matching_elements = np.count_nonzero(patch == tree_id)
+    tree_percentage = matching_elements / total_elements
+    matching_elements = np.count_nonzero(patch == other_id)
+    other_percentage = matching_elements / total_elements
+    return terrain_percentage,vegetation_percentage,tree_percentage,other_percentage
+
+
 def clearest_path(steering_image, slope_grid, mask):
     closest_obstacle = -1
     closest_vegetation = -1
@@ -363,29 +381,32 @@ def clearest_path(steering_image, slope_grid, mask):
     best_vegetation_direction = 0
 
     width = steering_image.shape[1]
+    height = steering_image.shape[0]
     central_square_height = steering_image.shape[0] // 40
     central_square_width = column_width
     start_row = (steering_image.shape[0] - central_square_height) // 2
+    printed =False
     for start_col in range(width - central_square_width - 1):
         depth_square = steering_image[start_row:start_row + central_square_height,
                        start_col:start_col + central_square_width]
         mask_square = mask[start_row:start_row + central_square_height,
                       start_col:start_col + central_square_width]
         masked_depth = np.ma.masked_where(depth_square == 0, depth_square)
-        # Calculate the middle index of the selected columns
+        terrain_ahead = mask[start_row:height-1,start_col:start_col+central_square_width]
+
+        ground,vegetation,tree,other = terrain_type_distribution(terrain_ahead)
+        if not printed:
+            printed = True
+            print(terrain_ahead.shape)
+            print(f'terrain distribution:{ground} {vegetation} {tree} {other}')
         middle_col = start_col + central_square_width // 2
         index = get_slope_index(middle_col, width)
         ground_pitch_angle = slope_grid[index]
-        # print(f'Slope grid:{slope_grid}')
-        # print(get_slope_index(middle_col,width))
-        # print(f'pitch angle for seg:{ground_pitch_angle}')
-        # print(f'percent:{percentage_of_elements_equal_to_value(mask_square, 22)}')
-        if ground_pitch_angle > 35 and percentage_of_elements_equal_to_value(mask_square,22) < 0.3:  # and not veg!!
+        if (ground_pitch_angle > 35 and vegetation < 0.3) or tree>0.05 or other>0.2:  #terrain is unsafe
             continue
 
         closest_point = get_smallest_value(masked_depth, mask_square)
-        vegetation_percentage = percentage_of_elements_equal_to_value(mask_square, 22)
-        if vegetation_percentage > 0.6:
+        if vegetation > 0.6:
             if closest_point > closest_vegetation:
                 closest_vegetation = closest_vegetation
                 best_vegetation_direction = middle_col
@@ -403,10 +424,11 @@ def clearest_path(steering_image, slope_grid, mask):
             return best_direction
 
 
-
 # Function to find a clear path and calculate its direction
 def find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width):
     index_of_highest_mean = clearest_path(steering_image,slope_grid,mask)
+    start_time = time.time()
+    print("Choosing direction: --- %s seconds ---" % (time.time() - start_time))
     angle = index_of_highest_mean / steering_image.shape[1] * 87 - (87 / 2)
     angle = (angle + 360) % 360
     return index_of_highest_mean, angle
