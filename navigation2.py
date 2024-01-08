@@ -381,8 +381,8 @@ def terrain_type_distribution(patch):
 def clearest_path(steering_image, slope_grid, mask):
     closest_obstacle = -1
     closest_vegetation = -1
-    best_direction = 0
-    best_vegetation_direction = 0
+    best_direction = 30 #half of column width
+    best_vegetation_direction = 30 #half of column width
 
     width = steering_image.shape[1]
     height = steering_image.shape[0]
@@ -430,8 +430,8 @@ def clearest_path(steering_image, slope_grid, mask):
 
 # Function to find a clear path and calculate its direction
 def find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width):
-    index_of_highest_mean = clearest_path(steering_image,slope_grid,mask)
     start_time = time.time()
+    index_of_highest_mean = clearest_path(steering_image,slope_grid,mask)
     print("Choosing direction: --- %s seconds ---" % (time.time() - start_time))
     angle = index_of_highest_mean / steering_image.shape[1] * 87 - (87 / 2)
     angle = (angle + 360) % 360
