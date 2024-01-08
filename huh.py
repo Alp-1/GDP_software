@@ -100,7 +100,7 @@ def get_new_images(frames):
         logger.info("problems")
 
     color_image = np.asanyarray(color_frame.get_data())
-    #steering_image = get_thresholded_image(depth_frame)
+    steering_image = get_thresholded_image(depth_frame)
     depth_frame = apply_filters(depth_frame)
     depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
 
@@ -304,6 +304,27 @@ def percentage_of_elements_equal_to_value(arr, value):
     return percentage
 
 
+def terrain_type_distribution(patch):
+    terrain_id = 6
+    vegetation_id = 22
+    tree_id = 25
+    other_id = 23
+    total_elements = patch.size
+
+    matching_elements = np.count_nonzero(patch == terrain_id)
+    terrain_percentage = matching_elements / total_elements
+    matching_elements = np.count_nonzero(patch == vegetation_id)
+    vegetation_percentage = matching_elements / total_elements
+    matching_elements = np.count_nonzero(patch == tree_id)
+    tree_percentage = matching_elements / total_elements
+    matching_elements = np.count_nonzero(patch == other_id)
+    other_percentage = matching_elements / total_elements
+    return terrain_percentage,vegetation_percentage,tree_percentage,other_percentage
+
+
+def is_safe_terrain(ground,veg,tree,other):
+    if tree>0.05 or other>0.2:
+        return
 def clearest_path(steering_image, slope_grid, mask):
     closest_obstacle = -1
     closest_vegetation = -1
@@ -311,29 +332,32 @@ def clearest_path(steering_image, slope_grid, mask):
     best_vegetation_direction = 0
 
     width = steering_image.shape[1]
+    height = steering_image.shape[0]
     central_square_height = steering_image.shape[0] // 40
     central_square_width = column_width
     start_row = (steering_image.shape[0] - central_square_height) // 2
+    printed =False
     for start_col in range(width - central_square_width - 1):
         depth_square = steering_image[start_row:start_row + central_square_height,
                        start_col:start_col + central_square_width]
         mask_square = mask[start_row:start_row + central_square_height,
                       start_col:start_col + central_square_width]
         masked_depth = np.ma.masked_where(depth_square == 0, depth_square)
-        # Calculate the middle index of the selected columns
+        terrain_ahead = mask[start_row:height-1,start_col:start_col+central_square_width]
+
+        ground,vegetation,tree,other = terrain_type_distribution(terrain_ahead)
+        if not printed:
+            printed = True
+            print(terrain_ahead.shape)
+            print(f'terrain distribution:{ground} {vegetation} {tree} {other}')
         middle_col = start_col + central_square_width // 2
         index = get_slope_index(middle_col, width)
         ground_pitch_angle = slope_grid[index]
-        # print(f'Slope grid:{slope_grid}')
-        # print(get_slope_index(middle_col,width))
-        # print(f'pitch angle for seg:{ground_pitch_angle}')
-        # print(f'percent:{percentage_of_elements_equal_to_value(mask_square, 22)}')
-        if ground_pitch_angle > 35 and percentage_of_elements_equal_to_value(mask_square,22) < 0.3:  # and not veg!!
+        if (ground_pitch_angle > 35 and vegetation < 0.3) or tree>0.05 or other>0.2:  #terrain is unsafe
             continue
 
         closest_point = get_smallest_value(masked_depth, mask_square)
-        vegetation_percentage = percentage_of_elements_equal_to_value(mask_square, 22)
-        if vegetation_percentage > 0.6:
+        if vegetation > 0.6:
             if closest_point > closest_vegetation:
                 closest_vegetation = closest_vegetation
                 best_vegetation_direction = middle_col
@@ -388,44 +412,39 @@ try:
         logger.info(f"percentage of pixels with 0 value - depth:{percentage}")
         print(np.max(depth_image))
 
-        # angle = cam.get_camera_angle(frames)
-        # print(f'camera angle:{angle}')
-        #
+        angle = cam.get_camera_angle(frames)
+        print(f'camera angle:{angle}')
+
+        start_time = time.time()
+        slope_grid,central_outlier_points = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
+        print(slope_grid)
+        print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
+
         # start_time = time.time()
-        # slope_grid,central_outlier_points = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
+        # slope_grid,central_outlier_points = get_slope_grid_accurate(depth_image,angle)
         # print(slope_grid)
-        # print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
-        #
-        # # start_time = time.time()
-        # # slope_grid,central_outlier_points = get_slope_grid_accurate(depth_image,angle)
-        # # print(slope_grid)
-        # # print("Slope Grid(manual): --- %s seconds ---" % (time.time() - start_time))
-        #
+        # print("Slope Grid(manual): --- %s seconds ---" % (time.time() - start_time))
+
+        start_time = time.time()
+        mask = clf.get_semantic_map(color_image)
+        if isinstance(mask, np.ndarray):
+            print("It's a NumPy array.")
+        else:
+            print("It's not a NumPy array.")
+        print("Segmenting image --- %s seconds ---" % (time.time() - start_time))
+
+
+        print(f'depth shape{depth_image.shape}')
+        print(f'mask shape:{mask.shape}')
+        # logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
         # start_time = time.time()
-        # mask = clf.get_semantic_map(color_image)
-        # if isinstance(mask, np.ndarray):
-        #     print("It's a NumPy array.")
-        # else:
-        #     print("It's not a NumPy array.")
-        # print("Segmenting image --- %s seconds ---" % (time.time() - start_time))
-        #
-        # start_row = 0
-        # central_square_height = 5
-        # start_col = 10
-        # central_square_width = 10
-        # mask_square = mask[start_row:start_row + central_square_height, start_col:start_col + central_square_width]
-        # print(percentage_of_elements_equal_to_value(mask_square ,22))
-        # print(f'depth shape{depth_image.shape}')
-        # print(f'mask shape:{mask.shape}')
-        # # logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
-        # # start_time = time.time()
-        # # new_obstacle_dist(depth_image,1,central_outlier_points)
-        # # print("Obstacle detection: --- %s seconds ---" % (time.time() - start_time))
-        # mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
-        # print(f'mask new shape:{mask.shape}')
-        # start_time = time.time()
-        # print(clearest_path(depth_image,slope_grid,mask))
-        # print("Choosing direction: --- %s seconds ---" % (time.time() - start_time))
+        # new_obstacle_dist(depth_image,1,central_outlier_points)
+        # print("Obstacle detection: --- %s seconds ---" % (time.time() - start_time))
+        mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+        print(f'mask new shape:{mask.shape}')
+        start_time = time.time()
+        print(clearest_path(depth_image,slope_grid,mask))
+        print("Choosing direction: --- %s seconds ---" % (time.time() - start_time))
         time.sleep(10)
 except KeyboardInterrupt:
     logger.info("Script terminated by user")
