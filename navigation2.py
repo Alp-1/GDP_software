@@ -207,6 +207,7 @@ def get_new_images(frames):
     return steering_image, depth_image, color_image
 
 
+
 def is_deadend(steering_image, mask,direction_column):
     square_height = steering_image.shape[0] // 40
     square_width = column_width
@@ -253,7 +254,7 @@ def deadend_protocol():
     start_time = time.time()
     mask = clf.get_semantic_map(color_image)
     logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
-    mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+    mask = cv2.resize(mask, (steering_image.shape[1], steering_image.shape[0]), interpolation=cv2.INTER_NEAREST)
 
     new_column, new_angle = find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width)
     if not is_deadend(steering_image, mask,new_column):
@@ -271,7 +272,7 @@ def deadend_protocol():
         start_time = time.time()
         mask = clf.get_semantic_map(color_image)
         logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
-        mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+        mask = cv2.resize(mask, (steering_image.shape[1], steering_image.shape[0]), interpolation=cv2.INTER_NEAREST)
 
         new_column, new_angle = find_clear_path_and_calculate_direction(steering_image, slope_grid, mask, depth_image,
                                                                         rover_width)
@@ -539,7 +540,7 @@ def navigate_avoiding_obstacles(steering_image, depth_image, color_image, dist, 
         start_time = time.time()
         mask = clf.get_semantic_map(color_image)
         logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
-        mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+        mask = cv2.resize(mask, (steering_image.shape[1], steering_image.shape[0]), interpolation=cv2.INTER_NEAREST)
         column_index, angle = find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width)
         logger.info(f"direction:{angle} column:{column_index}")
         if is_deadend(steering_image, mask,column_index):
@@ -565,7 +566,7 @@ def navigate():
     vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
     if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
         avoid_flipping()
-        distance = distance_to_obstacle(depth_image)
+        distance = distance_to_obstacle(steering_image)
         current_speed = mav_listener.get_rover_speed(mavlink_connection)
         current_speed /= 100
         logger.info(f"current speed:{current_speed}")  # to test if target speed can be used for collision detection
@@ -573,7 +574,7 @@ def navigate():
         if is_collision(current_speed):
             logger.info("COLLISION")
             mav_sender.move_backward(mavlink_connection, 0.5)
-        if is_tall_vegetation(depth_image, current_speed):
+        if is_tall_vegetation(steering_image, current_speed):
             logger.info("IN TALL VEGETATION")
             mavlink_connection.set_mode_apm("AUTO")
             return
