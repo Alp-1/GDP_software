@@ -1,4 +1,5 @@
 import time
+import mav_listener
 
 # 50.937472 -1.39575 is near B16
 FAKE_LONGITUDE = -1.39575
@@ -38,7 +39,7 @@ def switch_to_real_gps(mavlink_connection):
 
 def send_fake_gps(mavlink_connection, lat=FAKE_LATITUDE, lon=FAKE_LONGITUDE, alt=FAKE_ALTITUDE):
     """Send a fake GPS message to test the vehicle in GUIDED mode indoors"""
-    
+
     now = time.time()
     gps_week, gps_week_ms = get_gps_time(now)
     nsats = 12
@@ -52,3 +53,37 @@ def send_fake_gps(mavlink_connection, lat=FAKE_LATITUDE, lon=FAKE_LONGITUDE, alt
                                        0.2, 1.0, 1.0,
                                        nsats,
                                        0)
+
+def scale(val, src, dst):
+    """
+    Scale the given value from the scale of src to the scale of dst.
+    """
+    return ((val - src[0]) / (src[1]-src[0])) * (dst[1]-dst[0]) + dst[0]
+
+# Function to RC overrides (Only the first 4 channels)
+def override_rc_channels(ch1, ch2, ch3, ch4):
+    """
+    Override RC channels using pymavlink.
+    ch1, ch2, ch3, ch4: Channel values (1000 to 2000)
+    """
+    mavlink_connection.mav.rc_channels_override_send(
+        mavlink_connection.target_system,  # target_system
+        mavlink_connection.target_component,  # target_component
+        ch1, ch2, ch3, ch4, 0, 0, 0, 0)  # channels 1-8 (set channels 5-8 to 0)
+
+
+def move_backward(speed:float, mavlink_connection):
+    """Move backward at speed (0-100)"""
+
+    # Store current mode
+    current_vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
+
+    # Put into Manual mode
+    mavlink_connection.set_mode_apm("MANUAL")
+    channel_pwm = scale(speed, (0,100), (1500, 2000))
+
+    override_rc_channels(0, channel_pwm, 0, 0)
+    time.sleep(0.5)
+
+    # Put the vehicle back to intiial mode
+    mavlink_connection.set_mode_apm(current_vehicle_mode)
