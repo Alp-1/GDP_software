@@ -61,7 +61,7 @@ def scale(val, src, dst):
     return ((val - src[0]) / (src[1]-src[0])) * (dst[1]-dst[0]) + dst[0]
 
 # Function to RC overrides (Only the first 4 channels)
-def override_rc_channels(ch1, ch2, ch3, ch4):
+def override_rc_channels(mavlink_connection, ch1, ch2, ch3, ch4):
     """
     Override RC channels using pymavlink.
     ch1, ch2, ch3, ch4: Channel values (1000 to 2000)
@@ -72,7 +72,7 @@ def override_rc_channels(ch1, ch2, ch3, ch4):
         ch1, ch2, ch3, ch4, 0, 0, 0, 0)  # channels 1-8 (set channels 5-8 to 0)
 
 
-def move_backward(speed:float, mavlink_connection):
+def move_backward(mavlink_connection, speed:float):
     """Move backward at speed (0-100)"""
 
     # Store current mode
@@ -82,7 +82,7 @@ def move_backward(speed:float, mavlink_connection):
     mavlink_connection.set_mode_apm("MANUAL")
     channel_pwm = scale(speed, (0,100), (1500, 2000))
 
-    override_rc_channels(0, channel_pwm, 0, 0)
+    override_rc_channels(mavlink_connection, 0, channel_pwm, 0, 0)
     time.sleep(0.5)
 
     # Put the vehicle back to intiial mode
