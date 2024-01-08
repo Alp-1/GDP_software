@@ -1,16 +1,4 @@
-import copy
 import math
-import os
-import time
-from datetime import datetime
-
-import cv2
-import numpy as np
-import pyrealsense2 as rs
-from matplotlib import pyplot as plt
-
-import geometric_map as geo
-import mav_listener
 from logging_config import setup_custom_logger
 import camera_angle as cam
 from semantic_map import SemanticSegmentation
@@ -189,78 +177,78 @@ def pixel_to_3d_point(u, v, depth, intrinsics):
 
     return X, Y, Z
 
-
-def get_slope_grid_accurate(depth_image,angles):
-    grid_size = (1, 2)
-    grid_rows, grid_cols = grid_size
-    slope_grid = np.zeros(grid_size)
-    central_outliers = np.empty((0, 3))
-    rows, cols = depth_image.shape
-    # Calculate the size of each grid segment
-    segment_rows = rows // grid_rows
-    segment_cols = cols // grid_cols
-    rotation_matrix = o3d.geometry.get_rotation_matrix_from_zyx((math.radians(angles[0]),0,math.radians(angles[2])))
-    for n in range(grid_rows):
-        for m in range(grid_cols):
-            # Calculate the start and end indices for the current grid segment
-            start_row = n * segment_rows
-            end_row = (n + 1) * segment_rows
-            start_col = m * segment_cols
-            end_col = (m + 1) * segment_cols
-
-            # Get the original indices of the current grid segment
-            indices = np.array(np.meshgrid(range(start_row, end_row), range(start_col, end_col))).T.reshape(-1, 2)
-            print(indices)
-            # Initialize an empty array to store the results
-            points_3d = np.empty((len(indices), 3))
-            # Iterate through the pixel indices and apply the function
-            for i, (u, v) in enumerate(indices):
-                depth = depth_image[u, v]
-                print(depth)
-                point_3d = pixel_to_3d_point(u, v, depth, depth_intrinsics)
-                points_3d[i] = point_3d
-
-            # Create an Open3D PointCloud object
-            pcd = o3d.geometry.PointCloud()
-            # Set the points in the PointCloud
-            pcd.points = o3d.utility.Vector3dVector(points_3d)
-            pcd.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])  # flip it
-            downpcd = pcd #.voxel_down_sample(voxel_size=0.02)
-            adjusted_pcd = copy.deepcopy(downpcd)
-            adjusted_pcd.rotate(rotation_matrix)
-
-            print(len(downpcd.points))
-            if len(downpcd.points)>100:
-                plane_model, inliers = adjusted_pcd.segment_plane(distance_threshold=0.005,ransac_n=3,num_iterations=1000)
-                [a, b, c, d] = plane_model
-                inlier_cloud = pcd.select_by_index(inliers)
-                inlier_cloud.paint_uniform_color([1.0, 0, 0])
-                outlier_cloud = pcd.select_by_index(inliers, invert=True)
-
-                if m == 1 or m == 2:    # if it's a central segment, should generalise this
-                    outlier_points = np.asarray(outlier_cloud.points)
-                    print(f'outliers shape:{outlier_points.shape}')
-                    central_outliers = np.vstack((central_outliers, outlier_points))
-
-                    # Find the index of the smallest number in each sublist
-                    min_indices = np.argmin(outlier_points, axis=0)
-
-                    # Extract the sublist with the smallest number for each element
-                    result_rows = outlier_points[min_indices, np.arange(outlier_points.shape[1])]
-                    print("\nLists with Smallest Numbers:")
-                    print(result_rows)
-                    print(f'nr of outlier points: {len(outlier_points)}')
-                if a == 0:
-                    pitch_degrees = 90
-                else:
-                    pitch_degrees,_ = direction_to_euler_angles(np.array([a,b,c]))
-                    print(f"{i} {j}: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0   pitch:{pitch_degrees}")
-            else:
-                pitch_degrees = 90
-            slope_grid[n, m] = pitch_degrees
-    print(central_outliers.shape)
-    # central_outliers[:, 2] *= -1
-    return slope_grid, central_outliers
+#
+# def get_slope_grid_accurate(depth_image,angles):
+#     grid_size = (1, 2)
+#     grid_rows, grid_cols = grid_size
+#     slope_grid = np.zeros(grid_size)
+#     central_outliers = np.empty((0, 3))
+#     rows, cols = depth_image.shape
+#     # Calculate the size of each grid segment
+#     segment_rows = rows // grid_rows
+#     segment_cols = cols // grid_cols
+#     rotation_matrix = o3d.geometry.get_rotation_matrix_from_zyx((math.radians(angles[0]),0,math.radians(angles[2])))
+#     for n in range(grid_rows):
+#         for m in range(grid_cols):
+#             # Calculate the start and end indices for the current grid segment
+#             start_row = n * segment_rows
+#             end_row = (n + 1) * segment_rows
+#             start_col = m * segment_cols
+#             end_col = (m + 1) * segment_cols
+#
+#             # Get the original indices of the current grid segment
+#             indices = np.array(np.meshgrid(range(start_row, end_row), range(start_col, end_col))).T.reshape(-1, 2)
+#             print(indices)
+#             # Initialize an empty array to store the results
+#             points_3d = np.empty((len(indices), 3))
+#             # Iterate through the pixel indices and apply the function
+#             for i, (u, v) in enumerate(indices):
+#                 depth = depth_image[u, v]
+#                 print(depth)
+#                 point_3d = pixel_to_3d_point(u, v, depth, depth_intrinsics)
+#                 points_3d[i] = point_3d
+#
+#             # Create an Open3D PointCloud object
+#             pcd = o3d.geometry.PointCloud()
+#             # Set the points in the PointCloud
+#             pcd.points = o3d.utility.Vector3dVector(points_3d)
+#             pcd.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])  # flip it
+#             downpcd = pcd #.voxel_down_sample(voxel_size=0.02)
+#             adjusted_pcd = copy.deepcopy(downpcd)
+#             adjusted_pcd.rotate(rotation_matrix)
+#
+#             print(len(downpcd.points))
+#             if len(downpcd.points)>100:
+#                 plane_model, inliers = adjusted_pcd.segment_plane(distance_threshold=0.005,ransac_n=3,num_iterations=1000)
+#                 [a, b, c, d] = plane_model
+#                 inlier_cloud = pcd.select_by_index(inliers)
+#                 inlier_cloud.paint_uniform_color([1.0, 0, 0])
+#                 outlier_cloud = pcd.select_by_index(inliers, invert=True)
+#
+#                 if m == 1 or m == 2:    # if it's a central segment, should generalise this
+#                     outlier_points = np.asarray(outlier_cloud.points)
+#                     print(f'outliers shape:{outlier_points.shape}')
+#                     central_outliers = np.vstack((central_outliers, outlier_points))
+#
+#                     # Find the index of the smallest number in each sublist
+#                     min_indices = np.argmin(outlier_points, axis=0)
+#
+#                     # Extract the sublist with the smallest number for each element
+#                     result_rows = outlier_points[min_indices, np.arange(outlier_points.shape[1])]
+#                     print("\nLists with Smallest Numbers:")
+#                     print(result_rows)
+#                     print(f'nr of outlier points: {len(outlier_points)}')
+#                 if a == 0:
+#                     pitch_degrees = 90
+#                 else:
+#                     pitch_degrees,_ = direction_to_euler_angles(np.array([a,b,c]))
+#                     print(f"{i} {j}: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0   pitch:{pitch_degrees}")
+#             else:
+#                 pitch_degrees = 90
+#             slope_grid[n, m] = pitch_degrees
+#     print(central_outliers.shape)
+#     # central_outliers[:, 2] *= -1
+#     return slope_grid, central_outliers
 
 
 def new_obstacle_dist(depth_image,slope_grid, outlier_points):
