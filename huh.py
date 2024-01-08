@@ -22,15 +22,15 @@ deadend_threshold = 1.0
 def get_smallest_value(steering_image, mask):
     contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
     if contains_only_6_and_22:
-        return 0
+        condition_mask = np.logical_and(mask != 22)
     else:
         # Create a mask based on the conditions
         condition_mask = np.logical_and(mask != 6, mask != 22)
 
-        # Apply the mask to the depth image and get the minimum value
-        min_value = np.min(steering_image[condition_mask])
+    # Apply the mask to the depth image and get the minimum value
+    min_value = np.min(steering_image[condition_mask])
 
-        return min_value
+    return min_value
 
 def apply_filters(depth_frame):
     decimation = rs.decimation_filter()
@@ -392,6 +392,10 @@ try:
 
         start_time = time.time()
         mask = clf.get_semantic_map(color_image)
+        if isinstance(mask, np.ndarray):
+            print("It's a NumPy array.")
+        else:
+            print("It's not a NumPy array.")
         print("Segmenting image --- %s seconds ---" % (time.time() - start_time))
 
         start_row = 0

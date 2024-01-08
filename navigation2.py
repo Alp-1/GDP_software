@@ -11,6 +11,7 @@ import mav_listener
 from logging_config import setup_custom_logger
 import camera_angle as cam
 from semantic_map import SemanticSegmentation
+import mav_sender
 
 logger = setup_custom_logger("navigation")
 
@@ -251,7 +252,7 @@ def deadend_protocol():
     start_time = time.time()
     mask = clf.get_semantic_map(color_image)
     logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
-    mask = cv2.resize(mask, (steering_image.shape[0], steering_image.shape[1]), interpolation=cv2.INTER_NEAREST)
+    mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
 
     new_column, new_angle = find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width)
     if not is_deadend(steering_image, mask,new_column):
@@ -269,7 +270,8 @@ def deadend_protocol():
         start_time = time.time()
         mask = clf.get_semantic_map(color_image)
         logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
-        mask = cv2.resize(mask, (steering_image.shape[0], steering_image.shape[1]), interpolation=cv2.INTER_NEAREST)
+        mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+
         new_column, new_angle = find_clear_path_and_calculate_direction(steering_image, slope_grid, mask, depth_image,
                                                                         rover_width)
 
@@ -342,20 +344,18 @@ def percentage_of_elements_equal_to_value(arr, value):
 def get_smallest_value(steering_image, mask):
     contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
     if contains_only_6_and_22:
-        return 99
+        condition_mask = (mask != 22)
     else:
         # Create a mask based on the conditions
         condition_mask = np.logical_and(mask != 6, mask != 22)
 
-        # Apply the mask to the depth image and get the minimum value
-        min_value = np.min(steering_image[condition_mask])
+    # Apply the mask to the depth image and get the minimum value
+    min_value = np.min(steering_image[condition_mask])
 
-        return min_value
-
-
+    return min_value
 
 
-def clearest_path(steering_image,slope_grid,mask):
+def clearest_path(steering_image, slope_grid, mask):
     closest_obstacle = -1
     closest_vegetation = -1
     best_direction = 0
@@ -365,26 +365,33 @@ def clearest_path(steering_image,slope_grid,mask):
     central_square_height = steering_image.shape[0] // 40
     central_square_width = column_width
     start_row = (steering_image.shape[0] - central_square_height) // 2
-    for start_col in range(width-central_square_width-1):
-        depth_square = steering_image[start_row:start_row + central_square_height, start_col:start_col + central_square_width]
-        mask_square = mask[start_row:start_row + central_square_height, start_col:start_col + central_square_width]
-        masked_depth = np.ma.masked_where(depth_square == 0,depth_square)
+    for start_col in range(width - central_square_width - 1):
+        depth_square = steering_image[start_row:start_row + central_square_height,
+                       start_col:start_col + central_square_width]
+        mask_square = mask[start_row:start_row + central_square_height,
+                      start_col:start_col + central_square_width]
+        masked_depth = np.ma.masked_where(depth_square == 0, depth_square)
         # Calculate the middle index of the selected columns
         middle_col = start_col + central_square_width // 2
-        ground_pitch_angle = slope_grid[get_slope_index(middle_col,width)]
-        print(f'pitch angle for seg:{ground_pitch_angle}')
-        print(f'percent:{percentage_of_elements_equal_to_value(mask_square,22)}')
-        if ground_pitch_angle > 35 and percentage_of_elements_equal_to_value(mask_square ,22) < 0.3: #and not veg!!
+        index = get_slope_index(middle_col, width)
+        ground_pitch_angle = slope_grid[index]
+        # print(f'Slope grid:{slope_grid}')
+        # print(get_slope_index(middle_col,width))
+        # print(f'pitch angle for seg:{ground_pitch_angle}')
+        # print(f'percent:{percentage_of_elements_equal_to_value(mask_square, 22)}')
+        if ground_pitch_angle > 35 and percentage_of_elements_equal_to_value(mask_square,22) < 0.3:  # and not veg!!
             continue
 
-        closest_point = get_smallest_value(masked_depth,mask_square)
-        if closest_point>closest_obstacle:
-            closest_obstacle = closest_point
-            best_direction = middle_col
-        if percentage_of_elements_equal_to_value(mask_square, 22)>0.6:
-            if closest_point>closest_vegetation:
+        closest_point = get_smallest_value(masked_depth, mask_square)
+        vegetation_percentage = percentage_of_elements_equal_to_value(mask_square, 22)
+        if vegetation_percentage > 0.6:
+            if closest_point > closest_vegetation:
                 closest_vegetation = closest_vegetation
                 best_vegetation_direction = middle_col
+        else:
+            if closest_point > closest_obstacle:
+                closest_obstacle = closest_point
+                best_direction = middle_col
 
     if closest_obstacle >= deadend_threshold:
         return best_direction
@@ -477,7 +484,7 @@ def is_tall_vegetation(steering_image, current_speed):
 
 
 def is_collision(current_speed, target_speed):
-    if current_speed < 0.25 and target_speed >= 0.4:
+    if current_speed < 0.2 and target_speed >= 0.4:
         return True
     else:
         return False
@@ -510,7 +517,7 @@ def navigate_avoiding_obstacles(steering_image, depth_image, color_image, dist, 
         start_time = time.time()
         mask = clf.get_semantic_map(color_image)
         logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
-        mask = cv2.resize(mask, (steering_image.shape[0], steering_image.shape[1]), interpolation=cv2.INTER_NEAREST)
+        mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
         column_index, angle = find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width)
         logger.info(f"direction:{angle} column:{column_index}")
         if is_deadend(steering_image, mask,column_index):
@@ -541,6 +548,7 @@ def navigate():
         logger.info(f"current speed:{current_speed}")  # to test if target speed can be used for collision detection
 
         avoid_flipping()
+
         if is_tall_vegetation(depth_image, current_speed):
             logger.info("IN TALL VEGETATION")
             mavlink_connection.set_mode_apm("AUTO")
