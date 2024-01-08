@@ -32,6 +32,7 @@ def get_smallest_value(steering_image, mask):
 
     return min_value
 
+
 def apply_filters(depth_frame):
     decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
@@ -308,7 +309,7 @@ def terrain_type_distribution(patch):
     terrain_id = 6
     vegetation_id = 22
     tree_id = 25
-    other_id = 23
+    other_id = 99
     total_elements = patch.size
 
     matching_elements = np.count_nonzero(patch == terrain_id)
