@@ -19,65 +19,16 @@ grid_m = 4
 column_width = 50
 deadend_threshold = 1.0
 
-def is_deadend(steering_image, mask,direction_column):
-    square_height = steering_image.shape[0] // 40
-    square_width = column_width
-    start_row = (steering_image.shape[0] - square_height) // 2
-    start_col = direction_column - (square_width // 2)
-
-    square = steering_image[start_row:start_row + square_height, start_col:start_col + square_width]
-    mask_square = mask[start_row:start_row + square_height, start_col:start_col + square_width]
-    # Create a masked array where 0 values are masked
-    masked_array = np.ma.masked_where(square == 0,
-                                      square)  # this might be bad, it also excludes points that are closer than minz
-
-    print(masked_array.shape)
-    closest_point = get_smallest_value(masked_array, mask_square)
-    vegetation_percentage = percentage_of_elements_equal_to_value(mask_square, 22)
-
-    # # Find the minimum value while excluding masked values (0s)
-    # min_value_without_zeros = np.min(masked_array)
-    # mean_dist = np.mean(masked_array)
-    # logger.info(f"Distance to obstacle in chosen direction: {min_value_without_zeros}")
-    # logger.info(f"Distance to obstacle in chosen direction(mean): {mean_dist}")
-    # if min_value_without_zeros < deadend_threshold:
-    #     return True
-    # else:
-    #     return False
-    if closest_point < deadend_threshold and vegetation_percentage < 0.6:
-        return True
-    else:
-        return False
-
-
-def get_smallest_value(steering_image, mask):
-    contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
-    if contains_only_6_and_22:
-        condition_mask = (mask != 22)
-    else:
-        # Create a mask based on the conditions
-        condition_mask = np.logical_and(mask != 6, mask != 22)
-
-    masked_array = steering_image[condition_mask]
-    if masked_array.size == 0:
-        return np.min(steering_image)
-    else:
-    # Apply the mask to the depth image and get the minimum value
-        min_value = np.min(steering_image[condition_mask])
-
-    return min_value
-
-
 def apply_filters(depth_frame):
     decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
-    #spatial.set_option(rs.option.holes_fill,5) #do I still need hole filling???
-    hole_filling = rs.hole_filling_filter(2) #use min of neighbour cells,might need changing
-    threshold_filter = rs.threshold_filter(0.0, 4.0)
+    #spatial.set_option(rs.option.holes_fill, 5)  # do I still need hole filling???
+    #hole_filling = rs.hole_filling_filter(2)  # use min of neighbour cells,might need changing
+    threshold_filter = rs.threshold_filter(0.3, 4.0)
     depth_to_disparity = rs.disparity_transform(True)
     disparity_to_depth = rs.disparity_transform(False)
 
-    #spatial.set_option(rs.option.holes_fill, 3) #try 5??
+    # spatial.set_option(rs.option.holes_fill, 3) #try 5??
     frame = depth_frame
     frame = threshold_filter.process(frame)
     frame = decimation.process(frame)
@@ -86,26 +37,6 @@ def apply_filters(depth_frame):
     frame = disparity_to_depth.process(frame)
     #frame = hole_filling.process(frame)
     return frame
-
-
-def initialize_realsense():
-    global profile
-    pipeline = rs.pipeline()
-    config = rs.config()
-    config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 60)  # RGB stream
-    config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 60)  # Depth stream
-    config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 200)  # Accelerometer data
-    config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 400)  # Gyroscope data
-    profile = pipeline.start(config)
-
-    sensor = profile.get_device().query_sensors()[1]
-    sensor.set_option(rs.option.enable_auto_exposure, False)
-    sensor.set_option(rs.option.exposure, 78.0)
-    sensor.set_option(rs.option.gain, 90.0)
-
-    depth_sensor = profile.get_device().query_sensors()[0]
-    # depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5. doesn't work rn, maybe because of no advanced mode on pi?
-    return pipeline, profile
 
 
 def get_thresholded_image(depth_frame):
@@ -125,11 +56,15 @@ def get_thresholded_image(depth_frame):
     frame = hole_filling.process(frame)
 
     depth_image = np.asanyarray(frame.get_data()) * depth_scale
-    depth_image[depth_image>distance_limit] = distance_limit
+    depth_image[depth_image > distance_limit] = distance_limit
 
     return depth_image
 
+
 def get_new_images(frames):
+    align_to = rs.stream.depth
+    align = rs.align(align_to)
+    frames = align.process(frames)
     depth_frame = frames.get_depth_frame()
     color_frame = frames.get_color_frame()
     if not depth_frame or not color_frame:
@@ -140,38 +75,402 @@ def get_new_images(frames):
     depth_frame = apply_filters(depth_frame)
     depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
 
-    return steering_image, depth_image, color_image,depth_frame
+    # num_zeros = np.count_nonzero(depth_image == 0)
+    # logger.info(f"Number of zero values in depth image:{num_zeros}")
+    return steering_image, depth_image, color_image
 
 
-def distance_to_obstacle(depth_image, slope_grid):
-    pitch_threshold = 30
-    danger_squares = []
-    central_width = slope_grid.shape[1] // 4
-    central_height = 2
-    min_distance = 999
 
-    start_row = (slope_grid.shape[0] - central_height) // 2
-    start_col = (slope_grid.shape[1] - central_width) //  2
-    patch_height = (depth_image.shape[0]//slope_grid.shape[0])
-    patch_width = (depth_image.shape[1]//slope_grid.shape[1])
-    print(patch_height,patch_width)
-    for row_index in range(slope_grid.shape[0]):
-        for col_index in range(3,5):
-            if slope_grid[row_index][col_index] > 30:
-                # print(f'slope:{slope_grid[row_index][col_index]}')
-                # danger_squares.append((row_index,col_index))
-                # print(row_index,col_index)
-                patch_start_row = (row_index)*patch_height
-                patch_start_column = (col_index)*patch_width
-                # print(patch_start_row,patch_start_column)
-                patch_end_row = patch_start_row+patch_height
-                patch_end_column = patch_start_column+patch_width
-                patch = depth_image[patch_start_row:patch_end_row,patch_start_column:patch_end_column]
-                closest_in_patch = np.min(np.ma.masked_where(patch == 0, patch))
-                min_distance = min(min_distance,closest_in_patch)
+def is_deadend(steering_image, mask,direction_column):
+    square_height = steering_image.shape[0] // 40
+    square_width = column_width
+    start_row = (steering_image.shape[0] - square_height) // 2
+    start_col = direction_column - (square_width // 2)
+
+    square = steering_image[start_row:start_row + square_height, start_col:start_col + square_width]
+    mask_square = mask[start_row:start_row + square_height, start_col:start_col + square_width]
+    # Create a masked array where 0 values are masked
+    masked_array = np.ma.masked_where(square == 0,
+                                      square)  # this might be bad, it also excludes points that are closer than minz
+
+    closest_point = get_smallest_value(masked_array, mask_square)
+    vegetation_percentage = percentage_of_elements_equal_to_value(mask_square, 22)
+
+    # # Find the minimum value while excluding masked values (0s)
+    # min_value_without_zeros = np.min(masked_array)
+    # mean_dist = np.mean(masked_array)
+    # logger.info(f"Distance to obstacle in chosen direction: {min_value_without_zeros}")
+    # logger.info(f"Distance to obstacle in chosen direction(mean): {mean_dist}")
+    # if min_value_without_zeros < deadend_threshold:
+    #     return True
+    # else:
+    #     return False
+    if closest_point < deadend_threshold and vegetation_percentage < 0.6:
+        return True
+    else:
+        return False
 
 
-    return min_distance
+def deadend_protocol():
+    mavlink_velocity(0, 0, 0)
+    time.sleep(1)
+    mavlink_turn(0, 0, 0, 45)
+    time.sleep(1)
+    frames = pipeline.wait_for_frames()
+    steering_image, depth_image, color_image = get_new_images(frames)
+
+    camera_angle = cam.get_camera_angle(frames)
+    start_time = time.time()
+    slope_grid,central_outlier_points = geo.get_slope_grid(depth_image, depth_intrinsics, camera_angle)
+    logger.info("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
+
+    start_time = time.time()
+    mask = clf.get_semantic_map(color_image)
+    logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
+    mask = cv2.resize(mask, (steering_image.shape[1], steering_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+
+    new_column, new_angle = find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width)
+    if not is_deadend(steering_image, mask,new_column):
+        movement_commands(new_angle)
+    else:
+        mavlink_turn(0, 0, 0, 270)
+        time.sleep(1)
+        frames = pipeline.wait_for_frames()
+        steering_image, depth_image, color_image = get_new_images(frames)
+        camera_angle = cam.get_camera_angle(frames)
+        start_time = time.time()
+        slope_grid,central_outlier_points = geo.get_slope_grid(depth_image, depth_intrinsics, camera_angle)
+        logger.info("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
+
+        start_time = time.time()
+        mask = clf.get_semantic_map(color_image)
+        logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
+        mask = cv2.resize(mask, (steering_image.shape[1], steering_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+
+        new_column, new_angle = find_clear_path_and_calculate_direction(steering_image, slope_grid, mask, depth_image,
+                                                                        rover_width)
+
+        if not is_deadend(steering_image, mask,new_column):
+            movement_commands(new_angle)
+        else:
+            logger.info("Alp stuff")
+
+
+#             other stuff
+
+
+def distance_to_obstacle(steering_image):
+    # Calculate the size of the central square
+    central_width = steering_image.shape[1] // 4
+    central_height = steering_image.shape[0] // 40
+
+    # Calculate the starting indices for the central square
+    start_row = (steering_image.shape[0] - central_height) // 2
+    start_col = (steering_image.shape[1] - central_width) // 2
+
+    # Select the central square
+    central_square = steering_image[start_row:start_row + central_height, start_col:start_col + central_width]
+    # mask_square = mask[start_row:start_row + central_height, start_col:start_col + central_width]
+
+    # Create a masked array where 0 values are masked
+    masked_array = np.ma.masked_where(central_square == 0, central_square)
+
+    # closest_point = get_smallest_value(masked_array, mask_square)
+
+
+    # Find the minimum value while excluding masked values (0s)
+    min_value_without_zeros = np.min(masked_array)
+    mean_dist = np.mean(masked_array)
+    logger.info(f"distance to obstacle (min): {min_value_without_zeros}")
+    logger.info(f"distance to obstacle (mean): {mean_dist}")
+
+    return min_value_without_zeros
+
+
+def calculate_distance(depth_image, y1, x1, y2, x2):
+    # udist = depth_frame.get_distance(x1, y1)
+    # vdist = depth_frame.get_distance(x2, y2)
+    udist = depth_image[y1, x1]
+    vdist = depth_image[y2, x2]
+
+    point1 = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [y1, x1], udist)
+    point2 = rs.rs2_deproject_pixel_to_point(depth_intrinsics, [y2, x2], vdist)
+
+    # euclidean distance between two points, measured in meters
+    dist = math.sqrt(
+        math.pow(point1[0] - point2[0], 2) + math.pow(point1[1] - point2[1], 2) + math.pow(
+            point1[2] - point2[2], 2))
+    # result[0]: right, result[1]: down, result[2]: forward
+    return dist
+
+def get_slope_index(column, width):
+
+    index = math.ceil(column / (width / 4)) - 1
+    return index
+
+
+def percentage_of_elements_equal_to_value(arr, value):
+    total_elements = arr.size
+    matching_elements = np.count_nonzero(arr == value)
+    percentage = matching_elements / total_elements
+    return percentage
+
+
+def get_smallest_value(steering_image, mask): #what if all 22
+    all_ground = np.all(steering_image == 6)
+    contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
+    if all_ground:
+        return deadend_threshold + 0.01
+    elif contains_only_6_and_22:
+        condition_mask = (mask != 22)
+    else:
+        # Create a mask based on the conditions
+        condition_mask = np.logical_and(mask != 6, mask != 22)
+
+    masked_array = steering_image[condition_mask]
+    min_value = np.min(masked_array)
+
+    return min_value
+
+def terrain_type_distribution(patch):
+    terrain_id = 6
+    vegetation_id = 22
+    tree_id = 25
+    other_id = 99
+    total_elements = patch.size
+
+    matching_elements = np.count_nonzero(patch == terrain_id)
+    terrain_percentage = matching_elements / total_elements
+    matching_elements = np.count_nonzero(patch == vegetation_id)
+    vegetation_percentage = matching_elements / total_elements
+    matching_elements = np.count_nonzero(patch == tree_id)
+    tree_percentage = matching_elements / total_elements
+    matching_elements = np.count_nonzero(patch == other_id)
+    other_percentage = matching_elements / total_elements
+    return terrain_percentage,vegetation_percentage,tree_percentage,other_percentage
+
+
+def clearest_path(steering_image, slope_grid, mask):
+    closest_obstacle = -1
+    closest_vegetation = -1
+    best_direction = 30 #half of column width
+    best_vegetation_direction = 30 #half of column width
+
+    width = steering_image.shape[1]
+    height = steering_image.shape[0]
+    central_square_height = steering_image.shape[0] // 40
+    central_square_width = column_width
+    start_row = (steering_image.shape[0] - central_square_height) // 2
+    printed =False
+    for start_col in range(width - central_square_width - 1):
+        depth_square = steering_image[start_row:start_row + central_square_height,
+                       start_col:start_col + central_square_width]
+        mask_square = mask[start_row:start_row + central_square_height,
+                      start_col:start_col + central_square_width]
+        masked_depth = np.ma.masked_where(depth_square == 0, depth_square)
+        terrain_ahead = mask[start_row:height-1,start_col:start_col+central_square_width]
+
+        ground,vegetation,tree,other = terrain_type_distribution(terrain_ahead)
+        if not printed:
+            printed = True
+            print(terrain_ahead.shape)
+            print(f'terrain distribution:{ground} {vegetation} {tree} {other}')
+        middle_col = start_col + central_square_width // 2
+        index = get_slope_index(middle_col, width)
+        ground_pitch_angle = slope_grid[index]
+        if (ground_pitch_angle > 35 and vegetation < 0.3) or tree>0.05 or other>0.2:  #terrain is unsafe
+            continue
+
+        closest_point = get_smallest_value(masked_depth, mask_square)
+        if vegetation > 0.6:
+            if closest_point > closest_vegetation:
+                closest_vegetation = closest_vegetation
+                best_vegetation_direction = middle_col
+        else:
+            if closest_point > closest_obstacle:
+                closest_obstacle = closest_point
+                best_direction = middle_col
+
+    if closest_obstacle >= deadend_threshold:
+        return best_direction
+    else:
+        if closest_vegetation != -1:
+            return best_vegetation_direction
+        else:
+            return best_direction
+
+
+# Function to find a clear path and calculate its direction
+def find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width):
+    start_time = time.time()
+    index_of_highest_mean = clearest_path(steering_image,slope_grid,mask)
+    print("Choosing direction: --- %s seconds ---" % (time.time() - start_time))
+    angle = index_of_highest_mean / steering_image.shape[1] * 87 - (87 / 2)
+    angle = (angle + 360) % 360
+    return index_of_highest_mean, angle
+
+
+def gap_size(depth_image, column):
+    gap_threshold = 0.5
+    # start_row = depth_image.shape[0] // 2
+    width_left = column
+    width_right = column
+    height_up = depth_image.shape[0] // 2
+
+    square_height = depth_image.shape[0] // 40
+    # square_width = column_width
+    start_row = (depth_image.shape[0] - square_height) // 2
+    end_row = start_row + square_height
+    gap_width = 9999.0
+    for row in range(start_row, end_row + 1):
+        width_left = column
+        width_right = column
+        if depth_image[row, column] != 0:
+            while width_left > 1:
+                difference = depth_image[row, width_left] - depth_image[row, width_left - 1]
+                if difference > gap_threshold and depth_image[row, width_left - 1] < (2 * obstacle_threshold) and \
+                        depth_image[row, width_left - 1] < depth_image[row, column] and depth_image[
+                    row, width_left - 1] != 0:
+                    break
+                else:
+                    width_left -= 1
+            width_left -= 1
+
+            while width_right < (depth_image.shape[1] - 2):
+                difference = depth_image[row, width_right] - depth_image[row, width_right + 1]
+                if difference > gap_threshold and depth_image[row, width_right + 1] < (2 * obstacle_threshold) and \
+                        depth_image[row, width_right + 1] < depth_image[row, column] and depth_image[
+                    row, width_right + 1] != 0:
+                    break
+                else:
+                    width_right += 1
+            width_right += 1
+            width = calculate_distance(depth_image, row, width_left, row, width_right)
+            if width > 0:
+                gap_width = min(width, gap_width)
+
+    while height_up > 1:
+        difference = depth_image[height_up, column] - depth_image[height_up - 1, column]
+        if difference > gap_threshold and depth_image[height_up - 1, column] < (2 * obstacle_threshold) and depth_image[
+            height_up - 1, column] < depth_image[row, column] and depth_image[height_up - 1, column] != 0:
+            break
+        else:
+            height_up -= 1
+    height_up -= 1
+
+    gap_height = calculate_distance(depth_image, row, column, height_up, column)
+    logger.info(f"gap boundary pixels:{width_left} {width_right}")
+    logger.info(f"gap: height from camera:{gap_height} width:{gap_width}")
+    return gap_height, gap_width
+
+
+def movement_commands(angle):
+    mavlink_turn_and_go(0.2, 0, 0, angle)
+    time.sleep(1)
+    mavlink_velocity(0.5, 0, 0)
+    # time.sleep(0.3) #the rover should only go forward blindly until the next image is processed
+
+
+def is_tall_vegetation(steering_image, current_speed):
+    percentage_threshold = 0.5
+    nr_of_pixels = steering_image.size
+    percentage = np.count_nonzero(steering_image == 0) / nr_of_pixels
+    logger.info(f"percentage of pixels with 0 value:{percentage}")
+    if percentage > percentage_threshold and current_speed > 0.3:
+        return True
+    else:
+        return False
+
+
+def is_collision(current_speed):
+    if current_speed < 0.2 and target_speed > 0:
+        return True
+    else:
+        return False
+
+
+def avoid_flipping():
+    angles = mav_listener.get_imu_data(mavlink_connection)
+    logger.info("Roll: %f; Pitch: %f; Yaw: %f" % (angles[0], angles[1], angles[2]))
+    if abs(angles[0]) > flipping_threshold_radians or abs(angles[1]) > flipping_threshold_radians:
+        mavlink_connection.set_mode_apm("GUIDED")
+        logger.info("ROVER IS FLIPPING OVER")
+        # mavlink_velocity(0, 0, 0)
+        # time.sleep(0.5)
+        mav_sender.move_backward(mavlink_connection,0.5)
+
+
+# Function to navigate while avoiding obstacles
+def navigate_avoiding_obstacles(steering_image, depth_image, color_image, dist, camera_angle):
+    vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
+    logger.info(vehicle_mode)
+    deadend_status = False
+    if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
+        mavlink_connection.set_mode_apm("GUIDED")
+        current_time = datetime.now().strftime("%H-%M-%S")
+        start_time = time.time()
+        slope_grid,central_outlier_points = geo.get_slope_grid(depth_image, depth_intrinsics, camera_angle)
+        logger.info("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
+
+        start_time = time.time()
+        mask = clf.get_semantic_map(color_image)
+        logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
+        mask = cv2.resize(mask, (steering_image.shape[1], steering_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+        column_index, angle = find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width)
+        logger.info(f"direction:{angle} column:{column_index}")
+        if is_deadend(steering_image, mask,column_index):
+            logger.info("deadend")
+            deadend_status = True
+
+
+
+        gap_height, gap_width = gap_size(depth_image, column_index)
+        save_data_to_txt(dist, slope_grid, angle, deadend_status, gap_height, gap_width, current_time)
+        save_rgb_image(color_image, current_time)
+
+        if deadend_status:
+            deadend_protocol()
+        else:
+            movement_commands(angle)
+
+
+def navigate():
+    frames = pipeline.wait_for_frames()
+    steering_image, depth_image, color_image = get_new_images(frames)
+    camera_angle = cam.get_camera_angle(frames)
+    vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
+    if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
+        avoid_flipping()
+        distance = distance_to_obstacle(steering_image)
+        current_speed = mav_listener.get_rover_speed(mavlink_connection)
+        current_speed /= 100
+        logger.info(f"current speed:{current_speed}")  # to test if target speed can be used for collision detection
+
+        if is_collision(current_speed):
+            logger.info("COLLISION")
+            mav_sender.move_backward(mavlink_connection, 0.5)
+        if is_tall_vegetation(steering_image, current_speed):
+            logger.info("IN TALL VEGETATION")
+            mavlink_connection.set_mode_apm("AUTO")
+            return
+            # add command to lower speed in AUTO mode
+        if distance < 0.7 * obstacle_threshold:
+            logger.info("Obstacle is very close! Stopping")
+            mavlink_connection.set_mode_apm("GUIDED")
+            mavlink_velocity(0, 0, 0)
+            time.sleep(0.5)
+
+        if distance < obstacle_threshold:
+            logger.info("Obstacle detected! Taking evasive action.")
+            mavlink_connection.set_mode_apm("GUIDED")
+            mavlink_velocity(0, 0, 0)
+            time.sleep(0.5)
+            navigate_avoiding_obstacles(steering_image, depth_image, color_image, distance, camera_angle)
+        else:
+            logger.info("no obstacle ahead")
+            mavlink_connection.set_mode_apm("AUTO")
+
+
 
 
 def direction_to_euler_angles(direction):
@@ -323,116 +622,7 @@ def new_obstacle_dist(depth_image,slope_grid, outlier_points):
                         print(point)
 
 
-# my_array = np.array([[1, 2, 3, 5],
-#                      [4, 5, 6, 5],
-#                      [7, 8, 9, 5]])
-# get_slope_grid_accurate(my_array,5)
 
-def get_slope_index(column, width):
-
-    index = math.ceil(column / (width / 4)) - 1
-    return index
-
-def percentage_of_elements_equal_to_value(arr, value):
-    total_elements = arr.size
-    matching_elements = np.count_nonzero(arr == value)
-    percentage = matching_elements / total_elements
-    return percentage
-
-
-def terrain_type_distribution(patch):
-    terrain_id = 6
-    vegetation_id = 22
-    tree_id = 25
-    other_id = 99
-    total_elements = patch.size
-
-    matching_elements = np.count_nonzero(patch == terrain_id)
-    terrain_percentage = matching_elements / total_elements
-    matching_elements = np.count_nonzero(patch == vegetation_id)
-    vegetation_percentage = matching_elements / total_elements
-    matching_elements = np.count_nonzero(patch == tree_id)
-    tree_percentage = matching_elements / total_elements
-    matching_elements = np.count_nonzero(patch == other_id)
-    other_percentage = matching_elements / total_elements
-    return terrain_percentage,vegetation_percentage,tree_percentage,other_percentage
-
-
-def clearest_path(steering_image, slope_grid, mask):
-    closest_obstacle = -1
-    closest_vegetation = -1
-    best_direction = 0
-    best_vegetation_direction = 0
-
-    width = steering_image.shape[1]
-    height = steering_image.shape[0]
-    central_square_height = steering_image.shape[0] // 40
-    central_square_width = column_width
-    start_row = (steering_image.shape[0] - central_square_height) // 2
-    printed =False
-    for start_col in range(width - central_square_width - 1):
-        depth_square = steering_image[start_row:start_row + central_square_height,
-                       start_col:start_col + central_square_width]
-        mask_square = mask[start_row:start_row + central_square_height,
-                      start_col:start_col + central_square_width]
-        masked_depth = np.ma.masked_where(depth_square == 0, depth_square)
-        terrain_ahead = mask[start_row:height-1,start_col:start_col+central_square_width]
-
-        ground,vegetation,tree,other = terrain_type_distribution(terrain_ahead)
-        if not printed:
-            printed = True
-            print(terrain_ahead.shape)
-            print(f'terrain distribution:{ground} {vegetation} {tree} {other}')
-        middle_col = start_col + central_square_width // 2
-        index = get_slope_index(middle_col, width)
-        ground_pitch_angle = slope_grid[index]
-        if (ground_pitch_angle > 35 and vegetation < 0.3) or tree>0.05 or other>0.2:  #terrain is unsafe
-            continue
-
-        closest_point = get_smallest_value(masked_depth, mask_square)
-        if vegetation > 0.6:
-            if closest_point > closest_vegetation:
-                closest_vegetation = closest_vegetation
-                best_vegetation_direction = middle_col
-        else:
-            if closest_point > closest_obstacle:
-                closest_obstacle = closest_point
-                best_direction = middle_col
-
-    if closest_obstacle >= deadend_threshold:
-        return best_direction
-    else:
-        if closest_vegetation != -1:
-            return best_vegetation_direction
-        else:
-            return best_direction
-
-def distance_to_obstacle(steering_image):
-    # Calculate the size of the central square
-    central_width = steering_image.shape[1] // 4
-    central_height = steering_image.shape[0] // 40
-
-    # Calculate the starting indices for the central square
-    start_row = (steering_image.shape[0] - central_height) // 2
-    start_col = (steering_image.shape[1] - central_width) // 2
-
-    # Select the central square
-    central_square = steering_image[start_row:start_row + central_height, start_col:start_col + central_width]
-    # mask_square = mask[start_row:start_row + central_height, start_col:start_col + central_width]
-
-    # Create a masked array where 0 values are masked
-    masked_array = np.ma.masked_where(central_square == 0, central_square)
-
-    # closest_point = get_smallest_value(masked_array, mask_square)
-
-
-    # Find the minimum value while excluding masked values (0s)
-    min_value_without_zeros = np.min(masked_array)
-    mean_dist = np.mean(masked_array)
-    logger.info(f"distance to obstacle (min): {min_value_without_zeros}")
-    logger.info(f"distance to obstacle (mean): {mean_dist}")
-
-    return min_value_without_zeros
 
 
 # Main execution loop
@@ -456,27 +646,26 @@ try:
     while True:
         print(f'principal point: {depth_intrinsics.ppx} {depth_intrinsics.ppy}')
         frames = pipeline.wait_for_frames()
-        frames = align.process(frames)
 
         steering_image, depth_image, color_image,depth_frame = get_new_images(frames)
 
-        # nr_of_pixels = steering_image.size
-        # percentage = np.count_nonzero(steering_image == 0) / nr_of_pixels
-        # logger.info(f"percentage of pixels with 0 value - steering:{percentage}")
-        # print(np.max(steering_image))
-        #
-        # nr_of_pixels = depth_image.size
-        # percentage = np.count_nonzero(depth_image == 0) / nr_of_pixels
-        # logger.info(f"percentage of pixels with 0 value - depth:{percentage}")
-        # print(np.max(depth_image))
+        nr_of_pixels = steering_image.size
+        percentage = np.count_nonzero(steering_image == 0) / nr_of_pixels
+        logger.info(f"percentage of pixels with 0 value - steering:{percentage}")
+        print(np.max(steering_image))
+
+        nr_of_pixels = depth_image.size
+        percentage = np.count_nonzero(depth_image == 0) / nr_of_pixels
+        logger.info(f"percentage of pixels with 0 value - depth:{percentage}")
+        print(np.max(depth_image))
         #
         # angle = cam.get_camera_angle(frames)
         # print(f'camera angle:{angle}')
         #
-        # start_time = time.time()
-        # slope_grid,central_outlier_points = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
-        # print(slope_grid)
-        # print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
+        start_time = time.time()
+        slope_grid,central_outlier_points = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
+        print(slope_grid)
+        print("Slope Grid: --- %s seconds ---" % (time.time() - start_time))
         #
         # # start_time = time.time()
         # # slope_grid,central_outlier_points = get_slope_grid_accurate(depth_image,angle)
@@ -499,14 +688,16 @@ try:
         # # new_obstacle_dist(depth_image,1,central_outlier_points)
         # # print("Obstacle detection: --- %s seconds ---" % (time.time() - start_time))
         mask = cv2.resize(mask, (depth_image.shape[1], depth_image.shape[0]), interpolation=cv2.INTER_NEAREST)
-        is_deadend(steering_image,mask,100)
 
         # print(f'mask new shape:{mask.shape}')
         # start_time = time.time()
         # print(clearest_path(depth_image,slope_grid,mask))
         # print("Choosing direction: --- %s seconds ---" % (time.time() - start_time))
         # time.sleep(10)
-        print(distance_to_obstacle(steering_image))
+        print(mask.shape)
+        print(get_smallest_value(steering_image, mask))
+        print(is_deadend(steering_image, mask, 25))
+        print(clearest_path(steering_image, slope_grid, mask))
 except KeyboardInterrupt:
     logger.info("Script terminated by user")
 
