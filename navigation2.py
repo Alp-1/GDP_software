@@ -389,7 +389,7 @@ def clearest_path(steering_image, slope_grid, mask):
     central_square_width = column_width
     start_row = (steering_image.shape[0] - central_square_height) // 2
     printed =False
-    for start_col in range(width - central_square_width - 1):
+    for start_col in range(width - central_square_width - 3):
         depth_square = steering_image[start_row:start_row + central_square_height,
                        start_col:start_col + central_square_width]
         mask_square = mask[start_row:start_row + central_square_height,
@@ -402,7 +402,7 @@ def clearest_path(steering_image, slope_grid, mask):
             printed = True
             print(terrain_ahead.shape)
             print(f'terrain distribution:{ground} {vegetation} {tree} {other}')
-        middle_col = start_col + central_square_width // 2
+        middle_col = start_col + central_square_width // 2 +2
         index = get_slope_index(middle_col, width)
         ground_pitch_angle = slope_grid[index]
         if (ground_pitch_angle > 35 and vegetation < 0.3) or tree>0.05 or other>0.2:  #terrain is unsafe
@@ -434,6 +434,7 @@ def find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,dept
     print("Choosing direction: --- %s seconds ---" % (time.time() - start_time))
     angle = index_of_highest_mean / steering_image.shape[1] * 87 - (87 / 2)
     angle = (angle + 360) % 360
+    print(angle)
     return index_of_highest_mean, angle
 
 
@@ -499,7 +500,7 @@ def movement_commands(angle):
 
 
 def is_tall_vegetation(steering_image, current_speed):
-    percentage_threshold = 0.5
+    percentage_threshold = 0.04
     nr_of_pixels = steering_image.size
     percentage = np.count_nonzero(steering_image == 0) / nr_of_pixels
     logger.info(f"percentage of pixels with 0 value:{percentage}")
@@ -556,7 +557,7 @@ def navigate_avoiding_obstacles(steering_image, depth_image, color_image, dist, 
         logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
         mask = cv2.resize(mask, (steering_image.shape[1], steering_image.shape[0]), interpolation=cv2.INTER_NEAREST)
         column_index, angle = find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width)
-        logger.info(f"direction:{angle} column:{column_index}")
+        print(f"direction:{angle} column:{column_index}")
         if is_deadend(steering_image, mask,column_index):
             logger.info("deadend")
             deadend_status = True
@@ -585,7 +586,7 @@ def navigate():
         current_speed /= 100
         logger.info(f"current speed:{current_speed}")  # to test if target speed can be used for collision detection
 
-        if is_collision(current_speed):
+        if is_collision2(current_speed):
             logger.info("COLLISION")
             mav_sender.move_backward(mavlink_connection, 0.5)
             time.sleep(1)

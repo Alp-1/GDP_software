@@ -6,7 +6,7 @@ from pymavlink import mavutil
 import math
 
 
-def wait_for_msg(mavlink_connection, msg_name, flush=True, timeout=5, condition=None):
+def wait_for_msg(mavlink_connection, msg_name, flush=True, timeout=0.5, condition=None):
     """Wait for a message to be received, so that we can access its data"""
     if flush:
         try:
@@ -21,7 +21,7 @@ def wait_for_msg(mavlink_connection, msg_name, flush=True, timeout=5, condition=
         return msg
     except KeyError:
         print("Message %s not found" % msg_name)
-        return None
+        return 0
 
 
 def get_rover_speed(mavlink_connection):

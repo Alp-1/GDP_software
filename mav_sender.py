@@ -80,6 +80,7 @@ def move_backward(mavlink_connection, speed:float):
 
     # Put into Manual mode
     mavlink_connection.set_mode_apm("MANUAL")
+    time.sleep(1)
     channel_pwm = round(scale(speed, (0,100), (1500, 2000)))
 
     override_rc_channels(mavlink_connection, 0, channel_pwm, 0, 0)
