@@ -347,7 +347,7 @@ def get_smallest_value(steering_image, mask): #what if all 22
     all_ground = np.all(steering_image == 6)
     contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
     if all_ground:
-        return deadend_threshold + 0.01
+        return deadend_threshold + 0.01 #max(np.min(steering_image), deadend_threshold+1)
     elif contains_only_6_and_22:
         condition_mask = (mask != 22)
     else:
@@ -510,11 +510,22 @@ def is_tall_vegetation(steering_image, current_speed):
 
 
 def is_collision(current_speed):
-    if current_speed < 0.2 and target_speed > 0:
+    global target_speed
+    is_stopped_at_waypoint = mav_listener.get_cmd_long(mavlink_connection,93)
+    if current_speed < 0.2 and target_speed > 0 and not is_stopped_at_waypoint:
+        target_speed = 0
         return True
     else:
         return False
 
+def is_collision2(current_speed):
+    global target_speed
+    vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
+    if current_speed < 0.2 and target_speed > 0 and vehicle_mode == "GUIDED":
+        target_speed = 0
+        return True
+    else:
+        return False
 
 def avoid_flipping():
     angles = mav_listener.get_imu_data(mavlink_connection)
@@ -525,6 +536,7 @@ def avoid_flipping():
         # mavlink_velocity(0, 0, 0)
         # time.sleep(0.5)
         mav_sender.move_backward(mavlink_connection,0.5)
+        time.sleep(1)
 
 
 # Function to navigate while avoiding obstacles
@@ -576,6 +588,7 @@ def navigate():
         if is_collision(current_speed):
             logger.info("COLLISION")
             mav_sender.move_backward(mavlink_connection, 0.5)
+            time.sleep(1)
         if is_tall_vegetation(steering_image, current_speed):
             logger.info("IN TALL VEGETATION")
             mavlink_connection.set_mode_apm("AUTO")

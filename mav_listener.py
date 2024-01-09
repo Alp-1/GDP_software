@@ -125,6 +125,16 @@ def get_imu_data(mavlink_connection):
 
     return result
 
+def get_cmd_long(mavlink_connection, command_id):
+    """Check if command long based on type exists"""
+    msg = wait_for_msg(
+        mavlink_connection, "COMMAND_LONG", condition=f"command=={command_id}"
+    )
+    if msg is None:
+        return False
+    else:
+        return True
+
 
 def initialise_mavlink(connection_string="/dev/ttyAMA0", baud=57600):
     """Initialise mavlink connection"""
