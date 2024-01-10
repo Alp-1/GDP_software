@@ -92,7 +92,7 @@ def get_thresholded_image(depth_frame):
     # frame = hole_filling.process(frame)
 
     depth_image = np.asanyarray(frame.get_data()) * depth_scale
-    depth_image[depth_image > distance_limit] = distance_limit
+    # depth_image[depth_image > distance_limit] = distance_limit
 
     return depth_image
 
@@ -779,7 +779,7 @@ try:
         print(mask.shape)
         print(get_smallest_value(steering_image, mask))
         print(is_deadend(steering_image, mask, 25))
-        print(clearest_path(steering_image, slope_grid, mask))
+        # print(clearest_path(steering_image, slope_grid, mask))
 except KeyboardInterrupt:
     logger.info("Script terminated by user")
 
