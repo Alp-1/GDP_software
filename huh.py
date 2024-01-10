@@ -688,7 +688,7 @@ try:
         print("Advanced mode is", "enabled" if advnc_mode.is_enabled() else "disabled")
 
     depth_table_control_group = advnc_mode.get_depth_table()
-    depth_table_control_group.disparityShift = 128
+    depth_table_control_group.disparityShift = 10
     advnc_mode.set_depth_table(depth_table_control_group)
 
 
@@ -728,13 +728,17 @@ try:
         nr_of_pixels = steering_image.size
         percentage = np.count_nonzero(steering_image == 0) / nr_of_pixels
         logger.info(f"percentage of pixels with 0 value - steering:{percentage}")
+        masked_array = np.ma.masked_where(steering_image == 0,
+                                          steering_image)
         print(np.max(steering_image))
-        print(np.min(steering_image))
+        print(np.min(masked_array))
         nr_of_pixels = depth_image.size
         percentage = np.count_nonzero(depth_image == 0) / nr_of_pixels
         logger.info(f"percentage of pixels with 0 value - depth:{percentage}")
+        masked_array = np.ma.masked_where(depth_image == 0,
+                                          depth_image)
         print(np.max(depth_image))
-        print(np.min(depth_image))
+        print(np.min(masked_array))
 
         #
         angle = cam.get_camera_angle(frames)
