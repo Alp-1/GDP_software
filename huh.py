@@ -45,11 +45,11 @@ def initialize_realsense():
 
     depth_sensor = profile.get_device().query_sensors()[0]
 
-    device = rs.context().query_devices()[0]
-    advnc_mode = rs.rs400_advanced_mode(device)
-    depth_table_control_group = advnc_mode.get_depth_table()
-    depth_table_control_group.disparityShift = 128
-    advnc_mode.set_depth_table(depth_table_control_group)
+    # device = rs.context().query_devices()[0]
+    # advnc_mode = rs.rs400_advanced_mode(device)
+    # depth_table_control_group = advnc_mode.get_depth_table()
+    # depth_table_control_group.disparityShift = 128
+    # advnc_mode.set_depth_table(depth_table_control_group)
 
     # depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5. doesn't work rn, maybe because of no advanced mode on pi?
     return pipeline, profile
@@ -659,11 +659,23 @@ def new_obstacle_dist(depth_image,slope_grid, outlier_points):
                         print(point)
 
 
-
+def find_device_that_supports_advanced_mode() :
+    ctx = rs.context()
+    ds5_dev = rs.device()
+    devices = ctx.query_devices();
+    for dev in devices:
+        if dev.supports(rs.camera_info.product_id) and str(dev.get_info(rs.camera_info.product_id)) in DS5_product_ids:
+            if dev.supports(rs.camera_info.name):
+                print("Found device that supports advanced mode:", dev.get_info(rs.camera_info.name))
+            return dev
+    raise Exception("No D400 product line device that supports advanced mode was found")
 
 
 # Main execution loop
 try:
+    dev = find_device_that_supports_advanced_mode()
+    advnc_mode = rs.rs400_advanced_mode(dev)
+    print("Advanced mode is", "enabled" if advnc_mode.is_enabled() else "disabled")
 
     np.set_printoptions(suppress=True,precision=2)
     pipeline, profile = initialize_realsense()
@@ -686,6 +698,7 @@ try:
     print(f'color intrinsics:{color_intrinsic}')
 
     while True:
+
         print(f'principal point: {depth_intrinsics.ppx} {depth_intrinsics.ppy}')
         frames = pipeline.wait_for_frames()
 
