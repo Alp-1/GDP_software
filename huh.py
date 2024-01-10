@@ -675,6 +675,26 @@ try:
     advnc_mode = rs.rs400_advanced_mode(dev)
     print("Advanced mode is", "enabled" if advnc_mode.is_enabled() else "disabled")
 
+    while not advnc_mode.is_enabled():
+        print("Trying to enable advanced mode...")
+        advnc_mode.toggle_advanced_mode(True)
+        # At this point the device will disconnect and re-connect.
+        print("Sleeping for 5 seconds...")
+        time.sleep(5)
+        # The 'dev' object will become invalid and we need to initialize it again
+        dev = find_device_that_supports_advanced_mode()
+        advnc_mode = rs.rs400_advanced_mode(dev)
+        print("Advanced mode is", "enabled" if advnc_mode.is_enabled() else "disabled")
+
+    depth_table_control_group = advnc_mode.get_depth_table()
+    depth_table_control_group.disparityShift = 128
+    advnc_mode.set_depth_table(depth_table_control_group)
+
+
+
+
+
+
     np.set_printoptions(suppress=True,precision=2)
     pipeline, profile = initialize_realsense()
     depth_sensor = profile.get_device().first_depth_sensor()
@@ -692,8 +712,8 @@ try:
 
     color_stream = profile.get_stream(rs.stream.color)
     color_video_stream = color_stream.as_video_stream_profile()
-    color_intrinsic = depth_aligned_to_color_intrinsic = color_video_stream.get_intrinsic()
-    print(f'color intrinsics:{color_intrinsic}')
+    # color_intrinsic = depth_aligned_to_color_intrinsic = color_video_stream.get_intrinsic()
+    # print(f'color intrinsics:{color_intrinsic}')
 
     while True:
 
