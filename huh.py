@@ -507,9 +507,6 @@ def navigate():
             mavlink_connection.set_mode_apm("AUTO")
 
 
-def go_back2():
-
-
 def direction_to_euler_angles(direction):
     # Normalize the direction vector
     normalized_direction = direction / np.linalg.norm(direction)
@@ -658,6 +655,7 @@ def new_obstacle_dist(depth_image,slope_grid, outlier_points):
                         print(f'pixel:{i} {j}')
                         print(point)
 
+DS5_product_ids = ["0AD1", "0AD2", "0AD3", "0AD4", "0AD5", "0AF6", "0AFE", "0AFF", "0B00", "0B01", "0B03", "0B07", "0B3A", "0B5C"]
 
 def find_device_that_supports_advanced_mode() :
     ctx = rs.context()
