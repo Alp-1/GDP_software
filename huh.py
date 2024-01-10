@@ -1,4 +1,7 @@
+import datetime
 import math
+import os
+
 from logging_config import setup_custom_logger
 import camera_angle as cam
 from semantic_map import SemanticSegmentation
@@ -19,6 +22,11 @@ grid_m = 4
 column_width = 50
 deadend_threshold = 1.0
 
+def save_rgb_image(image, current_time):
+    folder_name = "test"
+    filename_image = os.path.join(folder_name, f"{current_time}_image.png")
+    cv2.imwrite(filename_image, image)
+
 
 def initialize_realsense():
     global profile
@@ -36,6 +44,13 @@ def initialize_realsense():
     sensor.set_option(rs.option.gain, 90.0)
 
     depth_sensor = profile.get_device().query_sensors()[0]
+
+    device = rs.context().query_devices()[0]
+    advnc_mode = rs.rs400_advanced_mode(device)
+    depth_table_control_group = advnc_mode.get_depth_table()
+    depth_table_control_group.disparityShift = 128
+    advnc_mode.set_depth_table(depth_table_control_group)
+
     # depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5. doesn't work rn, maybe because of no advanced mode on pi?
     return pipeline, profile
 
@@ -44,7 +59,7 @@ def apply_filters(depth_frame):
     spatial = rs.spatial_filter()
     #spatial.set_option(rs.option.holes_fill, 5)  # do I still need hole filling???
     #hole_filling = rs.hole_filling_filter(2)  # use min of neighbour cells,might need changing
-    threshold_filter = rs.threshold_filter(0.3, 4.0)
+    threshold_filter = rs.threshold_filter(0.0, 4.0)
     depth_to_disparity = rs.disparity_transform(True)
     disparity_to_depth = rs.disparity_transform(False)
 
@@ -63,8 +78,8 @@ def get_thresholded_image(depth_frame):
     distance_limit = 4.0
     decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
-    spatial.set_option(rs.option.holes_fill, 5)  # do I still need hole filling???
-    hole_filling = rs.hole_filling_filter(2)  # use min of neighbour cells,might need changing
+    # spatial.set_option(rs.option.holes_fill, 5)  # do I still need hole filling???
+    # hole_filling = rs.hole_filling_filter(2)  # use min of neighbour cells,might need changing
     depth_to_disparity = rs.disparity_transform(True)
     disparity_to_depth = rs.disparity_transform(False)
 
@@ -73,7 +88,7 @@ def get_thresholded_image(depth_frame):
     frame = depth_to_disparity.process(frame)
     frame = spatial.process(frame)
     frame = disparity_to_depth.process(frame)
-    frame = hole_filling.process(frame)
+    # frame = hole_filling.process(frame)
 
     depth_image = np.asanyarray(frame.get_data()) * depth_scale
     depth_image[depth_image > distance_limit] = distance_limit
@@ -82,7 +97,7 @@ def get_thresholded_image(depth_frame):
 
 
 def get_new_images(frames):
-    align_to = rs.stream.depth
+    align_to = rs.stream.color
     align = rs.align(align_to)
     frames = align.process(frames)
     depth_frame = frames.get_depth_frame()
@@ -93,6 +108,7 @@ def get_new_images(frames):
     color_image = np.asanyarray(color_frame.get_data())
     steering_image = get_thresholded_image(depth_frame)
     depth_frame = apply_filters(depth_frame)
+    frames = align.process(frames)
     depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
 
     # num_zeros = np.count_nonzero(depth_image == 0)
@@ -491,6 +507,7 @@ def navigate():
             mavlink_connection.set_mode_apm("AUTO")
 
 
+def go_back2():
 
 
 def direction_to_euler_angles(direction):
@@ -658,29 +675,38 @@ try:
     frames = pipeline.wait_for_frames()
     prof = frames.get_profile()
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
+    print(f'depth intrinsics {depth_intrinsics}')
     cam.initialize_angle(frames)
     clf = SemanticSegmentation()
-    align_to = rs.stream.depth
-    align = rs.align(align_to)
     pc = rs.pointcloud()
+
+    color_stream = profile.get_stream(rs.stream.color)
+    color_video_stream = color_stream.as_video_stream_profile()
+    color_intrinsic = depth_aligned_to_color_intrinsic = color_video_stream.get_intrinsic()
+    print(f'color intrinsics:{color_intrinsic}')
+
     while True:
         print(f'principal point: {depth_intrinsics.ppx} {depth_intrinsics.ppy}')
         frames = pipeline.wait_for_frames()
 
         steering_image, depth_image, color_image,depth_frame = get_new_images(frames)
+        current_time = datetime.now().strftime("%H-%M-%S")
+        save_rgb_image(color_image,current_time)
 
         nr_of_pixels = steering_image.size
         percentage = np.count_nonzero(steering_image == 0) / nr_of_pixels
         logger.info(f"percentage of pixels with 0 value - steering:{percentage}")
         print(np.max(steering_image))
-
+        print(np.min(steering_image))
         nr_of_pixels = depth_image.size
         percentage = np.count_nonzero(depth_image == 0) / nr_of_pixels
         logger.info(f"percentage of pixels with 0 value - depth:{percentage}")
         print(np.max(depth_image))
+        print(np.min(depth_image))
+
         #
-        # angle = cam.get_camera_angle(frames)
-        # print(f'camera angle:{angle}')
+        angle = cam.get_camera_angle(frames)
+        print(f'camera angle:{angle}')
         #
         start_time = time.time()
         slope_grid,central_outlier_points = geo.get_slope_grid(depth_image,depth_intrinsics,angle)
