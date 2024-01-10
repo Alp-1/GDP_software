@@ -1,6 +1,7 @@
-import datetime
+
 import math
 import os
+from datetime import datetime
 
 from logging_config import setup_custom_logger
 import camera_angle as cam
@@ -720,7 +721,7 @@ try:
         print(f'principal point: {depth_intrinsics.ppx} {depth_intrinsics.ppy}')
         frames = pipeline.wait_for_frames()
 
-        steering_image, depth_image, color_image,depth_frame = get_new_images(frames)
+        steering_image, depth_image, color_image = get_new_images(frames)
         current_time = datetime.now().strftime("%H-%M-%S")
         save_rgb_image(color_image,current_time)
 
