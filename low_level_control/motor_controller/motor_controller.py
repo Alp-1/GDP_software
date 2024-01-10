@@ -49,6 +49,7 @@ class MotorController:
     # to compensate for the motor being mounted in reverse
     REVERSE_OUTPUT = True
 
+    # Motor driver drive modes
     MIXED = 0
     INDEPENDENT_MOTOR = 1
 
@@ -118,7 +119,7 @@ class MotorController:
         self.turn = 0
         self.mixed_clipped_range = (-100, 100)
 
-        self.current_mode = self.MIXED
+        self.current_drive_mode = self.MIXED
 
         self.pid_left = PID(
             Kp=0.25,
@@ -185,7 +186,7 @@ class MotorController:
         If the current mode is mixed, the direct output will be clipped (both turn and speed)
         If the current mode is individual, the pid output will be reduced
         """
-        if self.current_mode == self.MIXED:
+        if self.current_drive_mode == self.MIXED:
             prev_range = self.mixed_clipped_range[1] - self.mixed_clipped_range[0]
             left_clipped_range = self.current_to_output_map(
                 self.left_motor.current, prev_range=prev_range
@@ -198,7 +199,7 @@ class MotorController:
                 min(left_clipped_range[1], right_clipped_range[1]),
             )
             return self.mixed_clipped_range
-        elif self.current_mode == self.INDEPENDENT_MOTOR:
+        elif self.current_drive_mode == self.INDEPENDENT_MOTOR:
             max_range = self.MAX_PID_RANGE[1] - self.MAX_PID_RANGE[0]
             left_prev_range = (
                 self.pid_left.output_limits[1] - self.pid_left.output_limits[0]
@@ -334,12 +335,12 @@ class MotorController:
 
     def detect_mode_change(self):
         """Allow the class to set the timer period once per mode change"""
-        if self.current_mode != self.MIXED and self.turn is not None:
+        if self.current_drive_mode != self.MIXED and self.turn is not None:
             # mode change
-            self.current_mode = self.MIXED
+            self.current_drive_mode = self.MIXED
             OnBoardLED.set_period_ms(2000)
-        elif self.current_mode != self.INDEPENDENT_MOTOR and self.turn is None:
-            self.current_mode = self.INDEPENDENT_MOTOR
+        elif self.current_drive_mode != self.INDEPENDENT_MOTOR and self.turn is None:
+            self.current_drive_mode = self.INDEPENDENT_MOTOR
             OnBoardLED.set_period_ms(1000)
 
     @staticmethod
@@ -364,10 +365,10 @@ class MotorController:
         """Stop the motors when the central hub timeout"""
         self.left_speed_command = 0
         self.right_speed_command = 0
-        if self.current_mode == self.MIXED:
+        if self.current_drive_mode == self.MIXED:
             self.turn = 0
             self.drive(self.left_speed_command, 0, self.turn)
-        elif self.current_mode == self.INDEPENDENT_MOTOR:
+        elif self.current_drive_mode == self.INDEPENDENT_MOTOR:
             self.set_pid_setpoint(self.pid_left, self.left_speed_command)
             self.set_pid_setpoint(self.pid_right, self.right_speed_command)
             self.pid_update()
@@ -405,9 +406,9 @@ class MotorController:
                 ):
                     self.central_hub_timeout_handler()
 
-            if self.current_mode == self.MIXED:
+            if self.current_drive_mode == self.MIXED:
                 self.drive(self.left_speed_command, 0, self.turn)
-            elif self.current_mode == self.INDEPENDENT_MOTOR:
+            elif self.current_drive_mode == self.INDEPENDENT_MOTOR:
                 # Run the PID control loop until a new command is received
                 self.pid_update()
 
@@ -440,7 +441,7 @@ class MotorController:
         """
         self.pid_left.reset()
         self.pid_right.reset()
-        self.current_mode = self.INDEPENDENT_MOTOR
+        self.current_drive_mode = self.INDEPENDENT_MOTOR
         last_time = time.ticks_ms()
         self.set_pid_setpoint(self.pid_left, left_target_speed)
         self.set_pid_setpoint(self.pid_right, right_target_speed)
