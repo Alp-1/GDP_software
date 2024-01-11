@@ -36,7 +36,7 @@ class CentralHub:
     THROTTLE = RCReceiver.CHANNEL_2
     RUDDER = RCReceiver.CHANNEL_1
     OPERATION_MODE_SELECTOR = RCReceiver.CHANNEL_5
-    MOTOR_STATE_SELECTOR = RCReceiver.CHANNEL_7
+    CONTROLLER_STATE_SELECTOR = RCReceiver.CHANNEL_7
 
     # Whether to reverse the channel input (Depends on the hardware wiring)
     REVERSE_THROTTLE = True
@@ -132,7 +132,7 @@ class CentralHub:
     @property
     def state_selector(self):
         """Return the state selector switch info"""
-        return self.rc_receiver.channel_data(self.MOTOR_STATE_SELECTOR)
+        return self.rc_receiver.channel_data(self.CONTROLLER_STATE_SELECTOR)
 
     def stop_motor(self):
         """Stop the motor by both setting the speed to 0 and pull down the S2 pin"""
@@ -141,8 +141,8 @@ class CentralHub:
         for controller in self.controllers.values():
             controller.write(self.STOP_COMMAND)
 
-    async def command_action(self, position, command_type, command_payload):
-        """Execute the command from the RC receiver
+    async def send_sensors_data(self, position, command_type, command_payload):
+        """Parse the sensor messages coming from the controller and relay to Flight Controller
 
         Parameters
         ----------
@@ -194,7 +194,7 @@ class CentralHub:
                 if parsed is not None:
                     # print("front_parsed", parsed)
                     command_type, response = parsed
-                    await self.command_action("front", command_type, response)
+                    await self.send_sensors_data("front", command_type, response)
             else:
                 front_miss_count += 1
                 if front_miss_count > self.SOFT_UART_RESET_COUNT:
@@ -207,7 +207,7 @@ class CentralHub:
                 if parsed is not None:
                     # print("rear_parsed", parsed)
                     command_type, response = parsed
-                    await self.command_action("rear", command_type, response)
+                    await self.send_sensors_data("rear", command_type, response)
             else:
                 rear_miss_count += 1
                 if rear_miss_count > self.SOFT_UART_RESET_COUNT:

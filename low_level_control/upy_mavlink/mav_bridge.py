@@ -9,14 +9,11 @@ import asyncio
 from machine import Pin
 import time
 from asyncio import Lock
-
-# import upy_mavlink.pymavminimal as pymav
 from upy_mavlink.src.mavlite import MavLink, UART
 
 
-m_id = [36, 251, 512]
+m_id = [36, 251, 512] # [SERVO_OUTPUT_RAW, NAMED_VALUE_FLOAT, MAV_CMD_REQUEST_MESSAGE]
 mavobj = MavLink(message_ids=m_id)
-
 mavlink_lock = Lock()
 
 

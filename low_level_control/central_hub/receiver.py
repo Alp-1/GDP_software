@@ -1,6 +1,5 @@
 """Convert the signals from RC into logic levels for the rest of the system"""
 
-# from central_hub.picosbus import PicoSBUS
 from central_hub.ppm_reader import PpmReader
 
 RC_RECEIVER_PIN = 21
