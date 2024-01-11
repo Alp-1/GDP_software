@@ -22,13 +22,4 @@ The tests are implemented using pytest. To run the tests, run the following comm
 $ pytest
 ```
 
-### Loading/Running code on Pi Pico
-To load the code onto the Pi Pico, it is recommended to use Thonny IDE as they provide a GUI for the filesystem on the Pico. You can also use the command line tools (e.g. mpremote, rshell) to load the code onto the Pico.
 
-First, load the common `user_interface` folder onto the pico then load either the `motor_controller` or `central_hub` folder onto the pico depends on which component you want to run. Then, add respective `main.py` file to the root directory of the pico.
-
-
-License
-----
-
-MIT
