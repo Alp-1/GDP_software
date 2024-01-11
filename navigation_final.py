@@ -1,3 +1,4 @@
+import numbers
 import os
 from datetime import datetime
 
@@ -396,7 +397,8 @@ def get_smallest_value(steering_image, mask): #what if all 22
 
     masked_array = steering_image[condition_mask]
     min_value = np.min(masked_array)
-
+    if not isinstance(min_value,numbers.Number):
+        return 0
     return min_value
 
 def terrain_type_distribution(patch):
