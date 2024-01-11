@@ -445,7 +445,7 @@ def clearest_path(steering_image, slope_grid, mask):
         middle_col = start_col + central_square_width // 2
         index = get_slope_index(middle_col, width)
         ground_pitch_angle = slope_grid[index]
-        if (ground_pitch_angle > 35 and vegetation < 0.3) or tree>0.05 or other>0.2:  #terrain is unsafe
+        if (ground_pitch_angle > 35 and vegetation < 0.3) or tree>0.05: #or other>0.2:  #terrain is unsafe
             continue
 
         closest_point = get_smallest_value(masked_depth, mask_square)
