@@ -171,7 +171,7 @@ def initialize_realsense():
     pipeline = rs.pipeline()
     config = rs.config()
     config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 60)  # RGB stream
-    config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 60)  # Depth stream
+    config.enable_stream(rs.stream.depth, 424, 240, rs.format.z16, 60)  # Depth stream
     config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 200)  # Accelerometer data
     config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 400)  # Gyroscope data
     profile = pipeline.start(config)
@@ -198,7 +198,7 @@ def apply_filters(depth_frame):
     # spatial.set_option(rs.option.holes_fill, 3) #try 5??
     frame = depth_frame
     frame = threshold_filter.process(frame)
-    frame = decimation.process(frame)
+    # frame = decimation.process(frame)
     frame = depth_to_disparity.process(frame)
     frame = spatial.process(frame)
     frame = disparity_to_depth.process(frame)
@@ -208,7 +208,7 @@ def apply_filters(depth_frame):
 
 def get_thresholded_image(depth_frame):
     distance_limit = 4.0
-    decimation = rs.decimation_filter()
+    # decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
     #spatial.set_option(rs.option.holes_fill, 5)  # do I still need hole filling???
     #hole_filling = rs.hole_filling_filter(2)  # use min of neighbour cells,might need changing
