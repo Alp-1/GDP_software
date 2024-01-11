@@ -208,7 +208,7 @@ def apply_filters(depth_frame):
 
 def get_thresholded_image(depth_frame):
     distance_limit = 4.0
-    # decimation = rs.decimation_filter()
+    decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
     #spatial.set_option(rs.option.holes_fill, 5)  # do I still need hole filling???
     #hole_filling = rs.hole_filling_filter(2)  # use min of neighbour cells,might need changing
@@ -216,7 +216,7 @@ def get_thresholded_image(depth_frame):
     disparity_to_depth = rs.disparity_transform(False)
 
     frame = depth_frame
-    frame = decimation.process(frame)
+    # frame = decimation.process(frame)
     frame = depth_to_disparity.process(frame)
     frame = spatial.process(frame)
     frame = disparity_to_depth.process(frame)
