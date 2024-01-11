@@ -575,8 +575,8 @@ def avoid_flipping():
         logger.info("ROVER IS FLIPPING OVER")
         # mavlink_velocity(0, 0, 0)
         # time.sleep(0.5)
-        mav_sender.move_backward(mavlink_connection,0.5)
-        # mavlink_velocity(-1,0,0)
+        # mav_sender.move_backward(mavlink_connection,0.5)
+        mavlink_velocity(-1,0,0)
         # mavlink_go_back1()
         time.sleep(1)
         # mavlink_velocity(0,0,0)
@@ -630,8 +630,8 @@ def navigate():
 
         if is_collision(current_speed):
             logger.info("COLLISION")
-            mav_sender.move_backward(mavlink_connection, 0.5)
-            #mavlink_velocity(-1,0,0)
+            # mav_sender.move_backward(mavlink_connection, 0.5)
+            mavlink_velocity(-1,0,0)
             #mavlink_go_back1()
             time.sleep(1)
             #mavlink_velocity(0,0,0)
