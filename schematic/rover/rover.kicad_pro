@@ -491,6 +491,14 @@
     [
       "47de232d-0f73-4c94-9f7d-6f96c0485431",
       "motor_controller_rear"
+    ],
+    [
+      "02d1a78b-840c-4f47-b3f2-11406cbac79e",
+      "Sabertooth_front"
+    ],
+    [
+      "b8c33eec-b08f-4384-a822-dd82c5d57790",
+      "Sabertooth_rear"
     ]
   ],
   "text_variables": {}
