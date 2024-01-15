@@ -56,7 +56,6 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
         adjusted_pcd = copy.deepcopy(downpcd)
         adjusted_pcd.rotate(rotation_matrix)
         # pcds.append(adjusted_pcd)
-        print(len(downpcd.points))
         if len(downpcd.points)>30:
             plane_model, inliers = adjusted_pcd.segment_plane(distance_threshold=0.005,ransac_n=3,num_iterations=1000)
             [a, b, c, d] = plane_model
@@ -67,7 +66,7 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
 
             if j==1 or j==2:
                 outlier_points = np.asarray(outlier_cloud.points)
-                print(f'outliers shape:{outlier_points.shape}')
+                # print(f'outliers shape:{outlier_points.shape}')
                 central_outliers = np.vstack((central_outliers, outlier_points))
 
                 # Find the index of the smallest number in each sublist
@@ -75,10 +74,8 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
 
                 # Extract the sublist with the smallest number for each element
                 result_rows = outlier_points[min_indices, np.arange(outlier_points.shape[1])]
-                print("\nLists with Smallest Numbers:")
-                print(result_rows)
 
-                print(f'nr of outlier points: {len(outlier_points)}')
+                # print(f'nr of outlier points: {len(outlier_points)}')
             if a == 0:
                 pitch_degrees = 90
             else:
@@ -88,7 +85,7 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
                 # print(f'radians:{pitch}')
                 # pitch_degrees = math.degrees(pitch)
                 pitch_degrees,_ = direction_to_euler_angles(np.array([a,b,c]))
-                print(f"{i} {j}: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0   pitch:{pitch_degrees}")
+                # print(f"{i} {j}: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0   pitch:{pitch_degrees}")
 
         else:
             pitch_degrees = 90
@@ -99,7 +96,6 @@ def get_slope_grid(depth_image,depth_intrinsics,angles):
             j = 0
         else:
             j += 1
-    print(central_outliers.shape)
     central_outliers[:, 2] *= -1
 
     return slope_grid[0], central_outliers

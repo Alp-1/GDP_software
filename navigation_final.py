@@ -440,10 +440,7 @@ def clearest_path(steering_image, slope_grid, mask):
         terrain_ahead = mask[start_row:height-1,start_col:start_col+central_square_width]
 
         ground,vegetation,tree,other = terrain_type_distribution(terrain_ahead)
-        if not printed:
-            printed = True
-            print(terrain_ahead.shape)
-            print(f'terrain distribution:{ground} {vegetation} {tree} {other}')
+
         middle_col = start_col + central_square_width // 2
         index = get_slope_index(middle_col, width)
         ground_pitch_angle = slope_grid[index]
@@ -451,6 +448,9 @@ def clearest_path(steering_image, slope_grid, mask):
             continue
 
         closest_point = get_smallest_value(masked_depth, mask_square)
+        print(middle_col)
+        print(f'terrain distribution:{ground} {vegetation} {tree} {other}')
+        print(closest_point)
         if vegetation > 0.6:
             if closest_point > closest_vegetation:
                 closest_vegetation = closest_vegetation
