@@ -15,6 +15,8 @@ from logging_config import setup_custom_logger
 import camera_angle as cam
 from semantic_map import SemanticSegmentation
 import mav_sender
+from pymavlink.quaternion import QuaternionBase
+
 
 logger = setup_custom_logger("navigation")
 
@@ -144,6 +146,17 @@ def mavlink_go_back2(thrust):
         thrust)  # thrust
 
 
+def mavlink_go_back3(thrust):
+    roll = pitch = yaw = 0
+    mavlink_connection.mav.set_attitude_target_send(
+        0,  # time_boot_ms (not used)
+        mavlink_connection.target_system,  # target system
+        mavlink_connection.target_component,  # target component
+        0b00100111,
+        QuaternionBase([math.radians(angle) for angle in (roll, pitch, yaw)]),
+        0, 0, 0, thrust  # roll rate, pitch rate, yaw rate, thrust
+    )
+
 
 def mavlink_go_back1(thrust):
     mavlink_connection.mav.set_attitude_target(
@@ -154,6 +167,15 @@ def mavlink_go_back1(thrust):
         [1,0, 0, 0],  # x, y, z positions (not used)
         0, 0, 0,  # x, y, z velocity in m/s
         thrust) #thrust
+
+def go_back_and_turn():
+    mavlink_go_back3(-1)
+    time.sleep(2)
+    mavlink_velocity(0,0,0)
+    time.sleep(0.5)
+    mavlink_turn_and_go(0.2, 0, 0, 45)
+    time.sleep(1)
+    mavlink_velocity(0.5, 0, 0)
 
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
@@ -541,7 +563,7 @@ def movement_commands(angle):
 
 
 def is_tall_vegetation(steering_image, current_speed):
-    percentage_threshold = 0.65
+    percentage_threshold = 0.6
     nr_of_pixels = steering_image.size
     percentage = np.count_nonzero(steering_image == 0) / nr_of_pixels
     logger.info(f"percentage of pixels with 0 value:{percentage}")
@@ -563,7 +585,7 @@ def is_collision(current_speed):
 def is_collision2(current_speed):
     global target_speed
     vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
-    if current_speed < 0.2 and target_speed > 0 and vehicle_mode == "GUIDED":
+    if current_speed < 0.2 and target_speed > 0:
         target_speed = 0
         return True
     else:
@@ -625,15 +647,10 @@ def navigate():
         current_speed /= 100
         logger.info(f"current speed:{current_speed}")  # to test if target speed can be used for collision detection
         if is_flipping():
-            mavlink_velocity(-1,0,0)
-            time.sleep(1)
-        elif is_collision(current_speed):
+            go_back_and_turn()
+        elif is_collision2(current_speed):
             logger.info("COLLISION")
-            # mav_sender.move_backward(mavlink_connection, 0.5)
-            mavlink_velocity(-1,0,0)
-            #mavlink_go_back1()
-            time.sleep(1)
-            #mavlink_velocity(0,0,0)
+            go_back_and_turn()
         elif is_tall_vegetation(steering_image, current_speed):
             logger.info("IN TALL VEGETATION")
             mavlink_connection.set_mode_apm("AUTO")
