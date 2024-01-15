@@ -418,7 +418,10 @@ def get_smallest_value(steering_image, mask): #what if all 22
         condition_mask = np.logical_and(mask != 6, mask != 22)
 
     masked_array = steering_image[condition_mask]
-    min_value = np.min(masked_array)
+    if masked_array.size==0:
+        return 0
+    else:
+        min_value = np.min(masked_array)
     if not isinstance(min_value,numbers.Number):
         return 0
     return min_value
@@ -567,7 +570,7 @@ def is_tall_vegetation(steering_image, current_speed):
     nr_of_pixels = steering_image.size
     percentage = np.count_nonzero(steering_image == 0) / nr_of_pixels
     logger.info(f"percentage of pixels with 0 value:{percentage}")
-    if percentage > percentage_threshold and current_speed > 0.05:
+    if percentage > percentage_threshold:
         return True
     else:
         return False
