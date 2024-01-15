@@ -585,7 +585,7 @@ def is_collision(current_speed):
 def is_collision2(current_speed):
     global target_speed
     vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
-    if current_speed < 0.2 and target_speed > 0:
+    if current_speed < 0.07 and target_speed > 0:
         target_speed = 0
         return True
     else:
