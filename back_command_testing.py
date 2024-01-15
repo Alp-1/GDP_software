@@ -14,6 +14,7 @@ from logging_config import setup_custom_logger
 import camera_angle as cam
 from semantic_map import SemanticSegmentation
 import mav_sender
+from pymavlink.quaternion import QuaternionBase
 
 def mavlink_go_back0(velocity_x, velocity_y, velocity_z):
     global target_speed
@@ -30,7 +31,7 @@ def mavlink_go_back0(velocity_x, velocity_y, velocity_z):
 
 
 def mavlink_go_back1(thrust):
-    mavlink_connection.mav.set_attitude_target(
+    mavlink_connection.mav.set_attitude_target_send(
         0,  # time_boot_ms (not used)
         mavlink_connection.target_system,  # target system
         mavlink_connection.target_component,  # target component
@@ -57,7 +58,7 @@ def euler_to_quaternion(roll, pitch, yaw):
 def mavlink_go_back2(thrust):
     heading = mav_listener.get_heading(mavlink_connection)
     quater = euler_to_quaternion(0,0,heading)
-    mavlink_connection.mav.set_attitude_target(
+    mavlink_connection.mav.set_attitude_target_send(
         0,  # time_boot_ms (not used)
         mavlink_connection.target_system,  # target system
         mavlink_connection.target_component,  # target component
@@ -65,6 +66,31 @@ def mavlink_go_back2(thrust):
         quater,  # x, y, z positions (not used)
         0, 0, 0,  # x, y, z velocity in m/s
         thrust)  # thrust
+
+def mavlink_go_back3(thrust):
+    roll = pitch = yaw = 0
+    mavlink_connection.mav.set_attitude_target_send(
+        0,  # time_boot_ms (not used)
+        mavlink_connection.target_system,  # target system
+        mavlink_connection.target_component,  # target component
+        0b00100111,
+        QuaternionBase([math.radians(angle) for angle in (roll, pitch, yaw)]),
+        0, 0, 0, thrust  # roll rate, pitch rate, yaw rate, thrust
+    )
+
+def mavlink_go_back4(thrust):
+    roll = pitch = 0
+    heading = mav_listener.get_heading(mavlink_connection)
+
+    mavlink_connection.mav.set_attitude_target_send(
+        0,  # time_boot_ms (not used)
+        mavlink_connection.target_system,  # target system
+        mavlink_connection.target_component,  # target component
+        0b00100111,
+        QuaternionBase([math.radians(angle) for angle in (roll, pitch, heading)]),
+        0, 0, 0, thrust  # roll rate, pitch rate, yaw rate, thrust
+    )
+
 
 def mavlink_velocity(velocity_x, velocity_y, velocity_z):
     global target_speed
@@ -79,7 +105,6 @@ def mavlink_velocity(velocity_x, velocity_y, velocity_z):
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         0, 0)  # yaw, yaw_rate
 
-    logger.info("sexy")
     target_speed = velocity_x
 
 
@@ -90,10 +115,10 @@ mavlink_connection.wait_heartbeat()
 try:
     mavlink_connection.arducopter_arm()
     time.sleep(3)
-    mavlink_go_back0(-1,0,0)
-    # mavlink_go_back1(-1)
+    # mavlink_go_back0(-1,0,0)
+    mavlink_go_back1(-1)
     time.sleep(1)
-    #mavlink_velocity(0,0,0)
-
+    mavlink_velocity(0,0,0)
+    time.sleep(0.5)
 except KeyboardInterrupt:
     print("Script terminated by user")
