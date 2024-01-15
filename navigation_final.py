@@ -230,9 +230,9 @@ def get_thresholded_image(depth_frame):
 
 
 def get_new_images(frames):
-    align_to = rs.stream.depth
-    align = rs.align(align_to)
-    frames = align.process(frames)
+    # align_to = rs.stream.color
+    # align = rs.align(align_to)
+    # frames = align.process(frames)
     depth_frame = frames.get_depth_frame()
     color_frame = frames.get_color_frame()
     if not depth_frame or not color_frame:
@@ -545,7 +545,7 @@ def is_tall_vegetation(steering_image, current_speed):
     nr_of_pixels = steering_image.size
     percentage = np.count_nonzero(steering_image == 0) / nr_of_pixels
     logger.info(f"percentage of pixels with 0 value:{percentage}")
-    if percentage > percentage_threshold and current_speed > 0.3:
+    if percentage > percentage_threshold and current_speed > 0.05:
         return True
     else:
         return False
@@ -569,19 +569,15 @@ def is_collision2(current_speed):
     else:
         return False
 
-def avoid_flipping():
+def is_flipping():
     angles = mav_listener.get_imu_data(mavlink_connection)
     logger.info("Roll: %f; Pitch: %f; Yaw: %f" % (angles[0], angles[1], angles[2]))
     if abs(angles[0]) > flipping_threshold_radians or abs(angles[1]) > flipping_threshold_radians:
         mavlink_connection.set_mode_apm("GUIDED")
         logger.info("ROVER IS FLIPPING OVER")
-        # mavlink_velocity(0, 0, 0)
-        # time.sleep(0.5)
-        # mav_sender.move_backward(mavlink_connection,0.5)
-        mavlink_velocity(-1,0,0)
-        # mavlink_go_back1()
-        time.sleep(1)
-        # mavlink_velocity(0,0,0)
+        return True
+    else:
+        return False
 
 
 # Function to navigate while avoiding obstacles
@@ -624,31 +620,32 @@ def navigate():
     camera_angle = cam.get_camera_angle(frames)
     vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
     if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
-        avoid_flipping()
         distance = distance_to_obstacle(steering_image)
         current_speed = mav_listener.get_rover_speed(mavlink_connection)
         current_speed /= 100
         logger.info(f"current speed:{current_speed}")  # to test if target speed can be used for collision detection
-
-        if is_collision(current_speed):
+        if is_flipping():
+            mavlink_velocity(-1,0,0)
+            time.sleep(1)
+        elif is_collision(current_speed):
             logger.info("COLLISION")
             # mav_sender.move_backward(mavlink_connection, 0.5)
             mavlink_velocity(-1,0,0)
             #mavlink_go_back1()
             time.sleep(1)
             #mavlink_velocity(0,0,0)
-        if is_tall_vegetation(steering_image, current_speed):
+        elif is_tall_vegetation(steering_image, current_speed):
             logger.info("IN TALL VEGETATION")
             mavlink_connection.set_mode_apm("AUTO")
             return
             # add command to lower speed in AUTO mode
-        if distance < 0.7 * obstacle_threshold:
-            logger.info("Obstacle is very close! Stopping")
-            mavlink_connection.set_mode_apm("GUIDED")
-            mavlink_velocity(0, 0, 0)
-            time.sleep(0.5)
+        # if distance < 0.7 * obstacle_threshold:
+        #     logger.info("Obstacle is very close! Stopping")
+        #     mavlink_connection.set_mode_apm("GUIDED")
+        #     mavlink_velocity(0, 0, 0)
+        #     time.sleep(0.5)
 
-        if distance < obstacle_threshold:
+        elif distance < obstacle_threshold:
             logger.info("Obstacle detected! Taking evasive action.")
             mavlink_connection.set_mode_apm("GUIDED")
             mavlink_velocity(0, 0, 0)
