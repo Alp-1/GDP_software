@@ -419,7 +419,7 @@ def get_smallest_value(steering_image, mask): #what if all 22
 
     masked_array = steering_image[condition_mask]
     if masked_array.size==0:
-        return 0
+        return deadend_threshold + 0.01
     else:
         min_value = np.min(masked_array)
     if not isinstance(min_value,numbers.Number):
