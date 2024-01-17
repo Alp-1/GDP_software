@@ -595,7 +595,10 @@ def is_collision2(current_speed):
         return False
 
 def is_flipping():
+    start_time = time.time()
     angles = mav_listener.get_imu_data(mavlink_connection)
+    logger.info("Get mavlink imu data: --- %s seconds ---" % (time.time() - start_time))
+
     logger.info("Roll: %f; Pitch: %f; Yaw: %f" % (angles[0], angles[1], angles[2]))
     if abs(angles[0]) > flipping_threshold_radians or abs(angles[1]) > flipping_threshold_radians:
         mavlink_connection.set_mode_apm("GUIDED")
@@ -607,46 +610,53 @@ def is_flipping():
 
 # Function to navigate while avoiding obstacles
 def navigate_avoiding_obstacles(steering_image, depth_image, color_image, dist, camera_angle):
-    vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
-    logger.info(vehicle_mode)
+
     deadend_status = False
-    if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
-        mavlink_connection.set_mode_apm("GUIDED")
-        current_time = datetime.now().strftime("%H-%M-%S")
-        start_time = time.time()
-        slope_grid,central_outlier_points = geo.get_slope_grid(depth_image, depth_intrinsics, camera_angle)
-        logger.info("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
+    mavlink_connection.set_mode_apm("GUIDED")
+    current_time = datetime.now().strftime("%H-%M-%S")
+    start_time = time.time()
+    slope_grid,central_outlier_points = geo.get_slope_grid(depth_image, depth_intrinsics, camera_angle)
+    logger.info("Creating slope grid: --- %s seconds ---" % (time.time() - start_time))
 
-        start_time = time.time()
-        mask = clf.get_semantic_map(color_image)
-        logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
-        mask = cv2.resize(mask, (steering_image.shape[1], steering_image.shape[0]), interpolation=cv2.INTER_NEAREST)
-        column_index, angle = find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width)
-        logger.info(f"direction:{angle} column:{column_index}")
-        if is_deadend(steering_image, mask,column_index):
-            logger.info("deadend")
-            deadend_status = True
-
+    start_time = time.time()
+    mask = clf.get_semantic_map(color_image)
+    logger.info("Segmenting image --- %s seconds ---" % (time.time() - start_time))
+    mask = cv2.resize(mask, (steering_image.shape[1], steering_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+    column_index, angle = find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,depth_image, rover_width)
+    logger.info(f"direction:{angle} column:{column_index}")
+    if is_deadend(steering_image, mask,column_index):
+        logger.info("deadend")
+        deadend_status = True
 
 
-        gap_height, gap_width = gap_size(depth_image, column_index)
-        save_data_to_txt(dist, slope_grid, angle, deadend_status, gap_height, gap_width, current_time)
-        save_rgb_image(color_image, current_time)
 
-        if deadend_status:
-            deadend_protocol()
-        else:
-            movement_commands(angle)
+    gap_height, gap_width = gap_size(depth_image, column_index)
+    save_data_to_txt(dist, slope_grid, angle, deadend_status, gap_height, gap_width, current_time)
+    save_rgb_image(color_image, current_time)
+
+    if deadend_status:
+        deadend_protocol()
+    else:
+        movement_commands(angle)
 
 
 def navigate():
     frames = pipeline.wait_for_frames()
     steering_image, depth_image, color_image = get_new_images(frames)
     camera_angle = cam.get_camera_angle(frames)
+
+    start_time = time.time()
     vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
+    logger.info("Get mavlink mode data: --- %s seconds ---" % (time.time() - start_time))
+
+    logger.info(vehicle_mode)
+
     if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
         distance = distance_to_obstacle(steering_image)
+        start_time = time.time()
         current_speed = mav_listener.get_rover_speed(mavlink_connection)
+        logger.info("Get mavlink speed data: --- %s seconds ---" % (time.time() - start_time))
+
         current_speed /= 100
         logger.info(f"current speed:{current_speed}")  # to test if target speed can be used for collision detection
         if is_flipping():

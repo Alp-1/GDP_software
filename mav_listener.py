@@ -6,7 +6,7 @@ from pymavlink import mavutil
 import math
 
 
-def wait_for_msg(mavlink_connection, msg_name, flush=True, timeout=0.5, condition=None):
+def wait_for_msg(mavlink_connection, msg_name, flush=True, timeout=0.13, condition=None):
     """Wait for a message to be received, so that we can access its data"""
     if flush:
         try:
@@ -80,7 +80,7 @@ def get_mav_mode(mavlink_connection):
     """Return the mode of the flight controller"""
     # MAV_TYPE.MAV_TYPE_GROUND_ROVER = 10
     heartbeat_msg = wait_for_msg(
-        mavlink_connection, "HEARTBEAT", condition="HEARTBEAT.type==10"
+        mavlink_connection, "HEARTBEAT", condition="HEARTBEAT.type==10",flush=False
     )
     return mavutil.mode_string_v10(heartbeat_msg)
 
