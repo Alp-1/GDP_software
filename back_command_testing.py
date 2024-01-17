@@ -16,6 +16,52 @@ from semantic_map import SemanticSegmentation
 import mav_sender
 from pymavlink.quaternion import QuaternionBase
 
+
+def mavlink_turn(velocity_x, velocity_y, velocity_z, yaw):
+    """
+    Move vehicle in direction based on specified velocity vectors using pymavlink.
+"""
+    mavlink_connection.mav.set_position_target_local_ned_send(
+        0,  # time_boot_ms (not used)
+        mavlink_connection.target_system,  # target system
+        mavlink_connection.target_component,  # target component
+        mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
+        0b100111111111,  # type_mask (only speeds enabled)
+        0, 0, 0,  # x, y, z positions (not used)
+        velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
+        0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+        math.radians(yaw), 0)  # yaw, yaw_rate
+
+
+def mavlink_velocity(velocity_x, velocity_y, velocity_z):
+    global target_speed
+    mavlink_connection.mav.set_position_target_local_ned_send(
+        0,  # time_boot_ms (not used)
+        mavlink_connection.target_system,  # target system
+        mavlink_connection.target_component,  # target component
+        mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
+        0b110111100111,  # type_mask (only speeds enabled)
+        0, 0, 0,  # x, y, z positions (not used)
+        velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
+        0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+        0, 0)  # yaw, yaw_rate
+
+    target_speed = velocity_x
+
+
+def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
+    mavlink_connection.mav.set_position_target_local_ned_send(
+        0,  # time_boot_ms (not used)
+        mavlink_connection.target_system,  # target system
+        mavlink_connection.target_component,  # target component
+        mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
+        0b100111100111,  # type_mask
+        0, 0, 0,  # x, y, z positions (not used)
+        velocity_x, velocity_y, velocity_z,  # x, y, z velocity in m/s
+        0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+        math.radians(yaw), 0)  # yaw, yaw_rate
+
+
 def mavlink_go_back0(velocity_x, velocity_y, velocity_z):
     global target_speed
     mavlink_connection.mav.set_position_target_local_ned_send(
@@ -108,6 +154,34 @@ def mavlink_velocity(velocity_x, velocity_y, velocity_z):
     target_speed = velocity_x
 
 
+def go_back_and_turn():
+    mavlink_go_back3(-1)
+    time.sleep(2)
+    mavlink_velocity(0,0,0)
+    time.sleep(0.5)
+    # mavlink_turn_and_go(0.2, 0, 0, 45)
+    # mavlink_turn(0, 0, 0, 45)
+    # time.sleep(1)
+    # mavlink_velocity(0.5, 0, 0)
+
+
+previous_speed = [1,1,1,1,1]
+target_speed = 0.5
+
+
+def is_collision2(current_speed):
+    max_size = 5
+    speed_threshold = 0.07
+    global target_speed
+    global previous_speed
+    previous_speed.pop(0)
+    previous_speed.append(current_speed)
+    for element in previous_speed:
+        if element >= speed_threshold:
+            return False
+    return True
+
+
 # Connect to the vehicle
 mavlink_connection = mavutil.mavlink_connection('/dev/ttyAMA0', baud=57600)
 mavlink_connection.wait_heartbeat()
@@ -115,10 +189,13 @@ mavlink_connection.wait_heartbeat()
 try:
     mavlink_connection.arducopter_arm()
     time.sleep(3)
-    # mavlink_go_back0(-1,0,0)
-    mavlink_go_back1(-1)
-    time.sleep(1)
-    mavlink_velocity(0,0,0)
-    time.sleep(0.5)
+    go_back_and_turn()
+
+    while True:
+        speed = mav_listener.get_rover_speed(mavlink_connection)
+        print(speed)
+        if is_collision2(speed):
+            print("COLLISION")
+            # go_back_and_turn()
 except KeyboardInterrupt:
     print("Script terminated by user")
