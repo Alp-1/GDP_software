@@ -693,8 +693,13 @@ try:
     depth_intrinsics = prof.as_video_stream_profile().get_intrinsics()
     clf = SemanticSegmentation()
     cam.initialize_angle(frames)
-    while True:
-        navigate()
+
+    vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
+    if vehicle_mode == "AUTO" or vehicle_mode == "GUIDED":
+        mavlink_connection.set_mode_apm("AUTO")
+        time.sleep(0.5)
+        while True:
+            navigate()
 
 
 except KeyboardInterrupt:

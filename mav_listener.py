@@ -6,7 +6,7 @@ from pymavlink import mavutil
 import math
 
 
-def wait_for_msg(mavlink_connection, msg_name, flush=True, timeout=0.3, condition=None):
+def wait_for_msg(mavlink_connection, msg_name, flush=True, timeout=0.13, condition=None):
     """Wait for a message to be received, so that we can access its data"""
     if flush:
         try:
