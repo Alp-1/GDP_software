@@ -35,6 +35,8 @@ rover_width = 0.5  # Adjust to your rover's width
 folder_name = ""
 pitch_threshold = 30
 target_speed = 0
+previous_speed = [1,1,1,1,1]
+in_tall_vegetation = False
 
 def create_folder(folder_name):
     # Create a folder if it doesn't exist
@@ -93,6 +95,7 @@ def mavlink_velocity(velocity_x, velocity_y, velocity_z):
     logger.info("sexy")
     target_speed = velocity_x
 
+
 def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
     mavlink_connection.mav.set_position_target_local_ned_send(
         0,  # time_boot_ms (not used)
@@ -133,18 +136,6 @@ def euler_to_quaternion(roll, pitch, yaw):
 
     return quaternion
 
-def mavlink_go_back2(thrust):
-    heading = mav_listener.get_heading(mavlink_connection)
-    quater = euler_to_quaternion(0,0,heading)
-    mavlink_connection.mav.set_attitude_target(
-        0,  # time_boot_ms (not used)
-        mavlink_connection.target_system,  # target system
-        mavlink_connection.target_component,  # target component
-        0b00100111,  # type_mask
-        quater,  # x, y, z positions (not used)
-        0, 0, 0,  # x, y, z velocity in m/s
-        thrust)  # thrust
-
 
 def mavlink_go_back3(thrust):
     roll = pitch = yaw = 0
@@ -158,24 +149,19 @@ def mavlink_go_back3(thrust):
     )
 
 
-def mavlink_go_back1(thrust):
-    mavlink_connection.mav.set_attitude_target(
-        0,  # time_boot_ms (not used)
-        mavlink_connection.target_system,  # target system
-        mavlink_connection.target_component,  # target component
-        0b00100111,  # type_mask
-        [1,0, 0, 0],  # x, y, z positions (not used)
-        0, 0, 0,  # x, y, z velocity in m/s
-        thrust) #thrust
-
 def go_back_and_turn():
+    mavlink_connection.set_mode_apm("GUIDED")
     mavlink_go_back3(-1)
     time.sleep(2)
-    mavlink_velocity(0,0,0)
-    time.sleep(0.5)
-    mavlink_turn_and_go(0.2, 0, 0, 45)
-    time.sleep(1)
-    mavlink_velocity(0.5, 0, 0)
+
+    if in_tall_vegetation:
+        mavlink_velocity(0, 0, 0)
+        time.sleep(1.5)
+        mavlink_turn_and_go(0.2, 0, 0, 45)
+        time.sleep(1)
+        mavlink_velocity(0.5, 0, 0)
+    else:
+        deadend_protocol()
 
 # Function to be called whenever HEARTBEAT messages are received
 def heartbeat_listener(self, name, message):
@@ -410,7 +396,8 @@ def get_smallest_value(steering_image, mask): #what if all 22
     all_ground = np.all(steering_image == 6)
     contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
     if all_ground:
-        return deadend_threshold + 0.01 #max(np.min(steering_image), deadend_threshold+1)
+        # return deadend_threshold + 0.01
+        return max(np.min(steering_image), deadend_threshold+0.01)
     elif contains_only_6_and_22:
         condition_mask = (mask != 22)
     else:
@@ -419,7 +406,9 @@ def get_smallest_value(steering_image, mask): #what if all 22
 
     masked_array = steering_image[condition_mask]
     if masked_array.size==0:
-        return deadend_threshold + 0.01
+        # return deadend_threshold + 0.01
+        return max(np.min(steering_image), deadend_threshold+0.01)
+
     else:
         min_value = np.min(masked_array)
     if not isinstance(min_value,numbers.Number):
@@ -566,32 +555,32 @@ def movement_commands(angle):
 
 
 def is_tall_vegetation(steering_image, current_speed):
+    global in_tall_vegetation
+    in_tall_vegetation = False
     percentage_threshold = 0.6
     nr_of_pixels = steering_image.size
     percentage = np.count_nonzero(steering_image == 0) / nr_of_pixels
     logger.info(f"percentage of pixels with 0 value:{percentage}")
     if percentage > percentage_threshold:
+        in_tall_vegetation = True
         return True
     else:
         return False
 
-
-def is_collision(current_speed):
-    global target_speed
-    is_stopped_at_waypoint = mav_listener.get_cmd_long(mavlink_connection,93)
-    if current_speed < 0.2 and target_speed > 0 and not is_stopped_at_waypoint:
-        target_speed = 0
-        return True
-    else:
-        return False
 
 def is_collision2(current_speed):
+    max_size = 5
+    speed_threshold = 0.10
     global target_speed
-    if current_speed < 0.07 and target_speed > 0:
-        target_speed = 0
-        return True
-    else:
-        return False
+    global previous_speed
+    previous_speed.pop(0)
+    previous_speed.append(current_speed)
+    for element in previous_speed:
+        if element >= speed_threshold:
+            return False
+    target_speed = 0
+    return True
+
 
 def is_flipping():
     start_time = time.time()
