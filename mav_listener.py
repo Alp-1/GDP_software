@@ -140,6 +140,18 @@ def get_heading(mavlink_connection):
     result = msg.heading
     return result
 
+def get_fused_lat(mavlink_connection):
+    """Return the GPS position from GPS+acell in latitude"""
+    global_position_int_msg = wait_for_msg(mavlink_connection, "GLOBAL_POSITION_INT")
+    latitude = global_position_int_msg.lat
+    return latitude
+
+def get_fused_lon(mavlink_connection):
+    """Return the GPS position from GPS+acell in latitude"""
+    global_position_int_msg = wait_for_msg(mavlink_connection, "GLOBAL_POSITION_INT")
+    longtitude = global_position_int_msg.lon
+    return longtitude
+
 def initialise_mavlink(connection_string="/dev/ttyAMA0", baud=57600):
     """Initialise mavlink connection"""
     mavlink_connection = mavutil.mavlink_connection(connection_string, baud=baud)
