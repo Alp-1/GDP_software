@@ -23,6 +23,7 @@ $ pytest
 ```
 
 ## Autonomous navigation
+The files in the pyrealsense folder may have to be in the same directory as the navigation scripts, depending on your installation.
 To run the autonomous navigation script, use the following command in the navigation folder:
 ```sh
 $ python navigation_final.py
