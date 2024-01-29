@@ -29,7 +29,7 @@ logger.info("Heartbeat from MAVLink system (system %u component %u)" % (
 obstacle_threshold = 1.0
 deadend_threshold = 1.0
 flipping_threshold_radians = 0.4
-column_width = 60  # might need adjusting
+column_width = 60  
 # Specify the width of the rover in meters
 rover_width = 0.5  # Adjust to your rover's width
 folder_name = ""
@@ -65,7 +65,7 @@ def save_rgb_image(image, current_time):
 
 def mavlink_turn(velocity_x, velocity_y, velocity_z, yaw):
     """
-    Move vehicle in direction based on specified velocity vectors using pymavlink.
+    Turn in place yaw degrees (ignores velocity) using pymavlink.
 """
     mavlink_connection.mav.set_position_target_local_ned_send(
         0,  # time_boot_ms (not used)
@@ -80,6 +80,9 @@ def mavlink_turn(velocity_x, velocity_y, velocity_z, yaw):
 
 
 def mavlink_velocity(velocity_x, velocity_y, velocity_z):
+    """
+    Move vehicle in direction based on specified velocity vectors using pymavlink.
+"""
     global target_speed
     mavlink_connection.mav.set_position_target_local_ned_send(
         0,  # time_boot_ms (not used)
@@ -92,11 +95,13 @@ def mavlink_velocity(velocity_x, velocity_y, velocity_z):
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         0, 0)  # yaw, yaw_rate
 
-    logger.info("sexy")
     target_speed = velocity_x
 
 
 def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
+    """
+    Turn yaw degrees and move vehicle in direction based on specified velocity vectors using pymavlink.
+"""
     mavlink_connection.mav.set_position_target_local_ned_send(
         0,  # time_boot_ms (not used)
         mavlink_connection.target_system,  # target system
@@ -109,35 +114,8 @@ def mavlink_turn_and_go(velocity_x, velocity_y, velocity_z, yaw):
         math.radians(yaw), 0)  # yaw, yaw_rate
 
 
-def mavlink_go_x_meters(distance):
-    mavlink_connection.mav.set_position_target_local_ned_send(
-        0,  # time_boot_ms (not used)
-        mavlink_connection.target_system,  # target system
-        mavlink_connection.target_component,  # target component
-        mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # frame
-        0b110111111100,  # type_mask (only position enabled)
-        distance, 0, 0,  # x, y, z positions
-        0, 0, 0,  # x, y, z velocity in m/s
-        0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
-        0, 0)  # yaw, yaw_rate
 
-
-def euler_to_quaternion(roll, pitch, yaw):
-    # Convert degrees to radians
-    roll_rad = roll * (3.141592653589793 / 180.0)
-    pitch_rad = pitch * (3.141592653589793 / 180.0)
-    yaw_rad = yaw * (3.141592653589793 / 180.0)
-
-    # Create a Rotation object from Euler angles
-    r = Rotation.from_euler('xyz', [roll_rad, pitch_rad, yaw_rad], degrees=False)
-
-    # Get the quaternion as a numpy array
-    quaternion = r.as_quat()
-
-    return quaternion
-
-
-def mavlink_go_back3(thrust):
+def mavlink_go_back(thrust):
     roll = pitch = yaw = 0
     mavlink_connection.mav.set_attitude_target_send(
         0,  # time_boot_ms (not used)
@@ -151,7 +129,7 @@ def mavlink_go_back3(thrust):
 
 def go_back_and_turn():
     mavlink_connection.set_mode_apm("GUIDED")
-    mavlink_go_back3(-1)
+    mavlink_go_back(-1)
     time.sleep(2)
 
     if in_tall_vegetation:
@@ -191,27 +169,21 @@ def initialize_realsense():
     sensor.set_option(rs.option.gain, 90.0)
 
     depth_sensor = profile.get_device().query_sensors()[0]
-    # depth_sensor.set_option(rs.option.visual_preset,4) #high density preset, medium density is 5. doesn't work rn, maybe because of no advanced mode on pi?
     return pipeline, profile
 
 
 def apply_filters(depth_frame):
     decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
-    #spatial.set_option(rs.option.holes_fill, 5)  # do I still need hole filling???
-    #hole_filling = rs.hole_filling_filter(2)  # use min of neighbour cells,might need changing
     threshold_filter = rs.threshold_filter(0.0, 4.0)
     depth_to_disparity = rs.disparity_transform(True)
     disparity_to_depth = rs.disparity_transform(False)
 
-    # spatial.set_option(rs.option.holes_fill, 3) #try 5??
     frame = depth_frame
     frame = threshold_filter.process(frame)
-    # frame = decimation.process(frame)
     frame = depth_to_disparity.process(frame)
     frame = spatial.process(frame)
     frame = disparity_to_depth.process(frame)
-    #frame = hole_filling.process(frame)
     return frame
 
 
@@ -219,17 +191,13 @@ def get_thresholded_image(depth_frame):
     distance_limit = 4.0
     decimation = rs.decimation_filter()
     spatial = rs.spatial_filter()
-    #spatial.set_option(rs.option.holes_fill, 5)  # do I still need hole filling???
-    #hole_filling = rs.hole_filling_filter(2)  # use min of neighbour cells,might need changing
     depth_to_disparity = rs.disparity_transform(True)
     disparity_to_depth = rs.disparity_transform(False)
 
     frame = depth_frame
-    # frame = decimation.process(frame)
     frame = depth_to_disparity.process(frame)
     frame = spatial.process(frame)
     frame = disparity_to_depth.process(frame)
-    #frame = hole_filling.process(frame)
 
     depth_image = np.asanyarray(frame.get_data()) * depth_scale
     depth_image[depth_image > distance_limit] = distance_limit
@@ -251,8 +219,6 @@ def get_new_images(frames):
     depth_frame = apply_filters(depth_frame)
     depth_image = np.asanyarray(depth_frame.get_data()) * depth_scale
 
-    # num_zeros = np.count_nonzero(depth_image == 0)
-    # logger.info(f"Number of zero values in depth image:{num_zeros}")
     return steering_image, depth_image, color_image
 
 
@@ -272,15 +238,6 @@ def is_deadend(steering_image, mask,direction_column):
     closest_point = get_smallest_value(masked_array, mask_square)
     vegetation_percentage = percentage_of_elements_equal_to_value(mask_square, 22)
 
-    # # Find the minimum value while excluding masked values (0s)
-    # min_value_without_zeros = np.min(masked_array)
-    # mean_dist = np.mean(masked_array)
-    # logger.info(f"Distance to obstacle in chosen direction: {min_value_without_zeros}")
-    # logger.info(f"Distance to obstacle in chosen direction(mean): {mean_dist}")
-    # if min_value_without_zeros < deadend_threshold:
-    #     return True
-    # else:
-    #     return False
     if closest_point < deadend_threshold and vegetation_percentage < 0.6:
         return True
     else:
@@ -329,13 +286,13 @@ def deadend_protocol():
         if not is_deadend(steering_image, mask,new_column):
             movement_commands(new_angle)
         else:
-            logger.info("Alp stuff")
-
-
-#             other stuff
+            logger.info("Second phase of the deadend protocol, not implemented")
 
 
 def distance_to_obstacle(steering_image):
+    """
+    Returns the closest non-zero point in central patch of the depth image (preliminary obstacle detection)
+"""
     # Calculate the size of the central square
     central_width = steering_image.shape[1] // 4
     central_height = steering_image.shape[0] // 40
@@ -346,7 +303,6 @@ def distance_to_obstacle(steering_image):
 
     # Select the central square
     central_square = steering_image[start_row:start_row + central_height, start_col:start_col + central_width]
-    # mask_square = mask[start_row:start_row + central_height, start_col:start_col + central_width]
 
     # Create a masked array where 0 values are masked
     masked_array = np.ma.masked_where(central_square == 0, central_square)
@@ -364,8 +320,9 @@ def distance_to_obstacle(steering_image):
 
 
 def calculate_distance(depth_image, y1, x1, y2, x2):
-    # udist = depth_frame.get_distance(x1, y1)
-    # vdist = depth_frame.get_distance(x2, y2)
+    """
+    Returns the real world distance between 2 depth image pixels
+"""
     udist = depth_image[y1, x1]
     vdist = depth_image[y2, x2]
 
@@ -392,11 +349,13 @@ def percentage_of_elements_equal_to_value(arr, value):
     return percentage
 
 
-def get_smallest_value(steering_image, mask): #what if all 22
+def get_smallest_value(steering_image, mask):
+     """
+    Get the distance to the closest obstacle in image patch (pixel which is not labelled ground or vegetation)
+"""
     all_ground = np.all(steering_image == 6)
     contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
     if all_ground:
-        # return deadend_threshold + 0.01
         return max(np.min(steering_image), deadend_threshold+0.01)
     elif contains_only_6_and_22:
         condition_mask = (mask != 22)
@@ -406,7 +365,6 @@ def get_smallest_value(steering_image, mask): #what if all 22
 
     masked_array = steering_image[condition_mask]
     if masked_array.size==0:
-        # return deadend_threshold + 0.01
         return max(np.min(steering_image), deadend_threshold+0.01)
 
     else:
@@ -434,6 +392,9 @@ def terrain_type_distribution(patch):
 
 
 def clearest_path(steering_image, slope_grid, mask):
+    """
+    Window sliding algorithm to choose direction column given semantic mask, ground slopes and depth image
+"""
     closest_obstacle = -1
     closest_vegetation = -1
     best_direction = 30 #half of column width
@@ -444,7 +405,6 @@ def clearest_path(steering_image, slope_grid, mask):
     central_square_height = steering_image.shape[0] // 40
     central_square_width = column_width
     start_row = (steering_image.shape[0] - central_square_height) // 2
-    printed =False
     for start_col in range(2,width - central_square_width - 2):
         depth_square = steering_image[start_row:start_row + central_square_height,
                        start_col:start_col + central_square_width]
@@ -474,7 +434,7 @@ def clearest_path(steering_image, slope_grid, mask):
                 closest_obstacle = closest_point
                 best_direction = middle_col
 
-    if closest_obstacle >= deadend_threshold:
+    if closest_obstacle >= deadend_threshold: #if there is a suitable direction without vegetation, choose it over the one with vegetation
         return best_direction
     else:
         if closest_vegetation != -1:
@@ -495,13 +455,11 @@ def find_clear_path_and_calculate_direction(steering_image, slope_grid,mask,dept
 
 def gap_size(depth_image, column):
     gap_threshold = 0.5
-    # start_row = depth_image.shape[0] // 2
     width_left = column
     width_right = column
     height_up = depth_image.shape[0] // 2
 
     square_height = depth_image.shape[0] // 40
-    # square_width = column_width
     start_row = (depth_image.shape[0] - square_height) // 2
     end_row = start_row + square_height
     gap_width = 9999.0
@@ -551,7 +509,6 @@ def movement_commands(angle):
     mavlink_turn_and_go(0.2, 0, 0, angle)
     time.sleep(1)
     mavlink_velocity(0.5, 0, 0)
-    # time.sleep(0.3) #the rover should only go forward blindly until the next image is processed
 
 
 def is_tall_vegetation(steering_image, current_speed):
@@ -568,7 +525,7 @@ def is_tall_vegetation(steering_image, current_speed):
         return False
 
 
-def is_collision2(current_speed):
+def is_collision(current_speed):
     max_size = 5
     speed_threshold = 0.10
     global target_speed
@@ -616,8 +573,6 @@ def navigate_avoiding_obstacles(steering_image, depth_image, color_image, dist, 
         logger.info("deadend")
         deadend_status = True
 
-
-
     gap_height, gap_width = gap_size(depth_image, column_index)
     save_data_to_txt(dist, slope_grid, angle, deadend_status, gap_height, gap_width, current_time)
     save_rgb_image(color_image, current_time)
@@ -646,23 +601,17 @@ def navigate():
         logger.info("Get mavlink speed data: --- %s seconds ---" % (time.time() - start_time))
 
         current_speed /= 100
-        logger.info(f"current speed:{current_speed}")  # to test if target speed can be used for collision detection
+        logger.info(f"current speed:{current_speed}")  
         if is_flipping():
             go_back_and_turn()
-        elif is_collision2(current_speed):
+        elif is_collision(current_speed):
             logger.info("COLLISION")
             go_back_and_turn()
         elif is_tall_vegetation(steering_image, current_speed):
             logger.info("IN TALL VEGETATION")
             mavlink_connection.set_mode_apm("AUTO")
-            return
             # add command to lower speed in AUTO mode
-        # if distance < 0.7 * obstacle_threshold:
-        #     logger.info("Obstacle is very close! Stopping")
-        #     mavlink_connection.set_mode_apm("GUIDED")
-        #     mavlink_velocity(0, 0, 0)
-        #     time.sleep(0.5)
-
+            return
         elif distance < obstacle_threshold:
             logger.info("Obstacle detected! Taking evasive action.")
             mavlink_connection.set_mode_apm("GUIDED")
