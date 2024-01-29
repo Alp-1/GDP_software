@@ -2,7 +2,7 @@
 
 import time
 from machine import Pin, UART
-from low_level_control.motor_controller.motor_sensor import MotorSensing
+from motor_controller.motor_sensor import MotorSensing
 from motor_controller.sabertooth import Sabertooth
 from motor_controller.pid import PID
 from protocol import Commands
@@ -221,8 +221,8 @@ class MotorController:
 
     def current_to_output_map(self, current, prev_range, max_range=200):
         """Return the clipped output range of the controller"""
-        # No output cap for current less than 20% of the threshold (3A for 15A threshold)
-        if abs(current) < 0.2 * self.THRESHOLD_CURRENT and prev_range == max_range:
+        # No output cap for current less than 34% of the threshold (5A for 15A threshold)
+        if abs(current) < 0.34 * self.THRESHOLD_CURRENT and prev_range == max_range:
             return (-max_range / 2, max_range / 2)
         # Generate a range from 0 to 1
         normalised_clipped_range = (
