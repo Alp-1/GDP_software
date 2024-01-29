@@ -22,4 +22,8 @@ The tests are implemented using pytest. To run the tests, run the following comm
 $ pytest
 ```
 
-
+## Autonomous navigation
+To run the autonomous navigation script, use the following command in the navigation folder:
+```sh
+$ python navigation_final.py
+```
