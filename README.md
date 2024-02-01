@@ -6,8 +6,7 @@ This project aims to develop a rover that can navigate through different terrain
 
     .
     ├── .vscode                 # VS Code settings
-    ├── data ???                # Data files ???
-    ├── ESP32                   # ESP32 code for ESP32-C3 dronebridge (where is the firmware?)
+    ├── ESP32                   # ESP32 code for ESP32-C3 dronebridge.
     ├── GPS                     # Script to start NTRIP caster.
     ├── low_level_control       # Low level control
     ├── lua_scripts             # Lua scripts uploaded in flight controller
