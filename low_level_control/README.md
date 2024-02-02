@@ -11,7 +11,6 @@ There are two components in the low level control i.e. the motor controller and 
     ├── user_interface          # Output interface e.g. LED, RGB LED
     ├── protocol.py             # The protocol between the central hub and the motor controller.
     ├── tests                   # Tests that can be executed on host machine.
-    ├── test                    # Automated tests (alternatively `spec` or `tests`)
     └── README.md
 
 
