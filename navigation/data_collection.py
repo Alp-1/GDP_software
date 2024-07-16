@@ -1,7 +1,7 @@
 import sys
 
 import cv2
-import pyrealsense2 as rs
+from pyrealsense import pyrealsense2 as rs
 import os
 import numpy as np
 import time

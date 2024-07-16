@@ -4,17 +4,17 @@ from datetime import datetime
 
 import cv2
 import numpy as np
-import pyrealsense2 as rs
+from pyrealsense import pyrealsense2 as rs
 # from dronekit import connect, VehicleMode, LocationGlobalRelative
 from dronekit import *
 from pymavlink.rotmat import Rotation
 
-import geometric_map as geo
-import mav_listener
-from logging_config import setup_custom_logger
-import camera_angle as cam
-from semantic_map import SemanticSegmentation
-import mav_sender
+from . import geometric_map as geo
+from . import mav_listener
+from .logging_config import setup_custom_logger
+from . import camera_angle as cam
+from .semantic_map import SemanticSegmentation
+from . import mav_sender
 from pymavlink.quaternion import QuaternionBase
 
 
@@ -350,9 +350,9 @@ def percentage_of_elements_equal_to_value(arr, value):
 
 
 def get_smallest_value(steering_image, mask):
-     """
+    """
     Get the distance to the closest obstacle in image patch (pixel which is not labelled ground or vegetation)
-"""
+    """
     all_ground = np.all(steering_image == 6)
     contains_only_6_and_22 = np.all(np.isin(mask, [6, 22]))
     if all_ground:

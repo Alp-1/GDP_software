@@ -3,7 +3,7 @@ import math
 
 import open3d as o3d
 import numpy as np
-import pyrealsense2 as rs
+from pyrealsense import pyrealsense2 as rs
 import time
 import scipy
 import cv2

@@ -26,6 +26,8 @@ SABERTOOTH_BAUDRATE = 9600
 SABERTOOTH_TX_PIN = 0
 SABERTOOTH_RX_PIN = 1  # Irrelevant
 
+BYPASS_ENCODER = True  # Remove this switch after encoder is fixed
+
 
 class MotorController:
     """Controls the motor speed using the signals coming from the central hub"""
@@ -177,6 +179,21 @@ class MotorController:
             )
             self.motor_driver.drive_both(left_speed, turn)
         else:
+            if BYPASS_ENCODER:
+                left_speed = self.map_range(
+                    left_speed,
+                    -100,
+                    100,
+                    self.mixed_clipped_range[0],
+                    self.mixed_clipped_range[1],
+                )
+                right_speed = self.map_range(
+                    right_speed,
+                    -100,
+                    100,
+                    self.mixed_clipped_range[0],
+                    self.mixed_clipped_range[1],
+                )
             self.motor_driver.drive(LEFT_MOTOR_ID, left_speed)
             self.motor_driver.drive(RIGHT_MOTOR_ID, right_speed)
 
@@ -186,7 +203,7 @@ class MotorController:
         If the current mode is mixed, the direct output will be clipped (both turn and speed)
         If the current mode is individual, the pid output will be reduced
         """
-        if self.current_drive_mode == self.MIXED:
+        if self.current_drive_mode == self.MIXED or BYPASS_ENCODER:
             prev_range = self.mixed_clipped_range[1] - self.mixed_clipped_range[0]
             left_clipped_range = self.current_to_output_map(
                 self.left_motor.current, prev_range=prev_range
@@ -369,9 +386,12 @@ class MotorController:
             self.turn = 0
             self.drive(self.left_speed_command, 0, self.turn)
         elif self.current_drive_mode == self.INDEPENDENT_MOTOR:
-            self.set_pid_setpoint(self.pid_left, self.left_speed_command)
-            self.set_pid_setpoint(self.pid_right, self.right_speed_command)
-            self.pid_update()
+            if BYPASS_ENCODER:
+                self.drive(0, 0)
+            else:
+                self.set_pid_setpoint(self.pid_left, self.left_speed_command)
+                self.set_pid_setpoint(self.pid_right, self.right_speed_command)
+                self.pid_update()
         else:
             print("Unknown mode")
 
@@ -410,12 +430,17 @@ class MotorController:
                 self.drive(self.left_speed_command, 0, self.turn)
             elif self.current_drive_mode == self.INDEPENDENT_MOTOR:
                 # Run the PID control loop until a new command is received
-                self.pid_update()
+                if BYPASS_ENCODER:
+                    self.drive(self.left_speed_command, self.right_speed_command)
+                else:
+                    self.pid_update()
 
             time.sleep_ms(self.MAIN_LOOP_PERIOD_MS)
 
     def pid_update(self):
         """Execute one iteration of the PID control loop"""
+        if BYPASS_ENCODER:
+            return
         current_speed = [self.left_motor.rpm, self.right_motor.rpm]
         left_input_rpm = 0
         right_input_rpm = 0
@@ -429,7 +454,7 @@ class MotorController:
         self.drive(self.left_speed_command, self.right_speed_command)
         return self.left_speed_command, self.right_speed_command
 
-    def pid_until_stable(
+    def _pid_until_stable(
         self,
         left_target_speed=0,
         right_target_speed=0,
