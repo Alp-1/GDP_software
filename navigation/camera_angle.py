@@ -1,6 +1,6 @@
 import time
 
-import pyrealsense2 as rs
+from pyrealsense import pyrealsense2 as rs
 import math
 
 

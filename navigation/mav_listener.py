@@ -6,7 +6,7 @@ from pymavlink import mavutil
 import math
 
 
-def wait_for_msg(mavlink_connection, msg_name, flush=True, timeout=0.13, condition=None):
+def wait_for_msg(mavlink_connection, msg_name, flush=True, timeout=5, condition=None):
     """Wait for a message to be received, so that we can access its data"""
     if flush:
         try:
@@ -21,7 +21,7 @@ def wait_for_msg(mavlink_connection, msg_name, flush=True, timeout=0.13, conditi
         return msg
     except KeyError:
         print("Message %s not found" % msg_name)
-        return 0
+        return None
 
 
 def get_rover_speed(mavlink_connection):
@@ -136,9 +136,11 @@ def get_cmd_long(mavlink_connection, command_id):
         return True
 
 def get_heading(mavlink_connection):
+    """Return the heading of the rover in degrees (0-360, 0=north)"""
     msg = wait_for_msg(mavlink_connection, "VFR_HUD")
-    result = msg.heading
-    return result
+    if msg:
+        return msg.heading
+    return None
 
 def get_fused_lat(mavlink_connection):
     """Return the GPS position from GPS+acell in latitude"""
@@ -162,6 +164,12 @@ def initialise_mavlink(connection_string="/dev/ttyAMA0", baud=57600):
     )
     return mavlink_connection
 
+def get_local_position(mavlink_connection):
+    """Return the position of the rover in local frame"""
+    msg = wait_for_msg(mavlink_connection, "LOCAL_POSITION_NED")
+    if msg:
+        return msg.time_boot_ms, msg.x, msg.y, msg.z
+    return None, None, None, None
 
 if __name__ == "__main__":
     mavlink_connection = initialise_mavlink()

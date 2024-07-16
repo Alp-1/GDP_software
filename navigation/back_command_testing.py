@@ -3,7 +3,7 @@ from datetime import datetime
 
 import cv2
 import numpy as np
-import pyrealsense2 as rs
+from pyrealsense import pyrealsense2 as rs
 # from dronekit import connect, VehicleMode, LocationGlobalRelative
 from dronekit import *
 from scipy.spatial.transform import Rotation

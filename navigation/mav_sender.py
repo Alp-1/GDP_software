@@ -1,5 +1,6 @@
 import time
-import mav_listener
+from .mav_listener import get_mav_mode
+from pymavlink import mavutil
 
 # 50.937472 -1.39575 is near B16
 FAKE_LONGITUDE = -1.39575
@@ -76,7 +77,7 @@ def move_backward(mavlink_connection, speed:float):
     """Move backward at speed (0-100)"""
 
     # Store current mode
-    current_vehicle_mode = mav_listener.get_mav_mode(mavlink_connection)
+    current_vehicle_mode = get_mav_mode(mavlink_connection)
 
     # Put into Manual mode
     mavlink_connection.set_mode_apm("MANUAL")
@@ -88,3 +89,38 @@ def move_backward(mavlink_connection, speed:float):
 
     # Put the vehicle back to intiial mode
     mavlink_connection.set_mode_apm(current_vehicle_mode)
+
+
+def set_home_position(mavlink_connection, lat=None, lon=None, alt=None):
+    """Set the home position of the vehicle. Set to current position if lat is None.
+    Can be used to set EKF origin when GPS is not available.
+    """
+    if lat is None:
+        mavlink_connection.mav.command_long_send(
+            mavlink_connection.target_system,
+            mavlink_connection.target_component,
+            mavutil.mavlink.MAV_CMD_DO_SET_HOME,
+            0,
+            1,  # 1: Use current position
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        )
+    else:
+        mavlink_connection.mav.command_long_send(
+            mavlink_connection.target_system,
+            mavlink_connection.target_component,
+            mavutil.mavlink.MAV_CMD_DO_SET_HOME,
+            0,
+            0,  # 0: Use specified position
+            0,
+            0,
+            0,
+            0,
+            lat,
+            lon,
+            alt,
+        )

@@ -3,7 +3,7 @@
 import json
 import math
 import numpy as np
-import pyrealsense2 as rs
+from pyrealsense import pyrealsense2 as rs
 from dronekit import *
 import pymavlink
 from mav_listener import *

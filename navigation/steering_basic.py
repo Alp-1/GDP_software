@@ -2,7 +2,7 @@ import math
 import time
 import numpy as np
 import cv2
-import pyrealsense2 as rs
+from pyrealsense import pyrealsense2 as rs
 import json
 from pymavlink import mavutil
 # from dronekit import connect, VehicleMode, LocationGlobalRelative

@@ -31,6 +31,10 @@ There are two components in the low level control i.e. the motor controller and 
 
 ## Autonomous navigation
 The files in the pyrealsense folder may have to be in the same directory as the navigation scripts, depending on your installation.
+Another option is to include the right package from local directory i.e. 
+```python
+from pyrealsense import pyrealsense2 as rs
+``` 
 To run the autonomous navigation script, use the following command in the navigation folder:
 ```sh
 $ python navigation_final.py
