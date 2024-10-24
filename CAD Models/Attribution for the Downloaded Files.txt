@@ -1,0 +1,42 @@
+The Rover Model was provided by LynxMotion
+
+https://wiki.lynxmotion.com/info/wiki/lynxmotion/view/rover-kits/
+
+Maker Beam Parts are provided by chartup.com
+
+https://www.chartup.com/shop_content.php?language=en&coID=9998
+
+Intel Camera model is provided by intel:
+
+https://dev.intelrealsense.com/docs/cad-files
+
+Simplified RPi 5 is provided by Eric Schleicher:
+
+https://grabcad.com/library/raspberry-pi-5-sbc-1
+
+The Ublox F9P model was provided by Daniel Becher:
+
+https://grabcad.com/library/sparkfun-ublox-zed-f9p-gps-rtk-2-1
+
+Pi Pico is provided by Ali Fatih Demir:
+
+https://grabcad.com/library/raspberry-pi-pico-w-1
+
+ACS711EX Hall Sensor was provided by Polulu:
+
+https://www.pololu.com/product/2453/resources
+
+Maker Beam hinge, eyeplate and Tslot Nut was provided by Raffaello Bonghi
+
+https://grabcad.com/library/makerbeam-components-1
+
+SEEED Esp32 c3 is provided by Miguel Gaspar:
+
+https://grabcad.com/library/seeed-studio-xiao-esp32c3-1 
+
+MATEK H743 WING Snap Mount is provided by jbienz:
+
+https://www.thingiverse.com/thing:5264534
+
+All the remaining Components was Created by Alp Ortakci
+
