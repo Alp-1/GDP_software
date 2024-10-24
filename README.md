@@ -1,3 +1,6 @@
+
+![banner-nana](https://github.com/user-attachments/assets/7941604b-cee3-448b-9373-da8d395b1adb)
+
 NANA -  A Low-Cost Approach For Autonomous Forest Navigation Using Mobile Robotics 
 
 This project aims to develop a rover that can navigate through different terrain in a forest environment autonomously.
