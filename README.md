@@ -10,6 +10,7 @@ A more detailed account of the development process can be found [here](https://a
 
     .
     ├── .vscode                 # VS Code settings
+    ├── CAD Models              # CAD Models used in the project with attributions. 
     ├── ESP32                   # ESP32 code for ESP32-C3 dronebridge.
     ├── GPS                     # Script to start NTRIP caster.
     ├── low_level_control       # Low level control
