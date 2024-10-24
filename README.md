@@ -4,6 +4,8 @@
 This project aims to develop a rover that can navigate through different terrain in a forest environment autonomously.
 The wiki containing more informatin about the rover can be found [here](https://github.com/Alp-1/NANA-Forest-Rover/wiki).
 
+A more detailed account of the development process can be found [here](https://alportakci.com/projects/).
+
 ## The directory layout
 
     .
