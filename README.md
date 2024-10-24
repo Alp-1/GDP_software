@@ -1,7 +1,7 @@
-# G16 GDP - Autonomous Forest Navigation Rover
+NANA -  A Low-Cost Approach For Autonomous Forest Navigation Using Mobile Robotics 
 
 This project aims to develop a rover that can navigate through different terrain in a forest environment autonomously.
-The wiki containing more informatin about the rover can be found [here](https://git.soton.ac.uk/gdp-16/gdp_software/-/wikis/home).
+The wiki containing more informatin about the rover can be found [here](https://github.com/Alp-1/NANA-Forest-Rover/wiki).
 
 ## The directory layout
 
