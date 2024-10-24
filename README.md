@@ -43,3 +43,7 @@ To run the autonomous navigation script, use the following command in the naviga
 ```sh
 $ python navigation_final.py
 ```
+## Research Poster
+
+![Poster](https://github.com/user-attachments/assets/2642907a-6847-46e5-974c-356a01847da1)
+
